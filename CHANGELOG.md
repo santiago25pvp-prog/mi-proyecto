@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.0.0...v1.1.0) (2026-03-15)
+
+
+### Features
+
+* finalize RAG system architecture ([2f41b07](https://github.com/santiago25pvp-prog/mi-proyecto/commit/2f41b075db34b91dd3a36cb6ef8153deb81e2d52))
+
 ## 1.0.0 (2026-03-13)
 
 
