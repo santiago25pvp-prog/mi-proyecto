@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.1.0...v1.2.0) (2026-03-15)
+
+
+### Features
+
+* add JWT authentication ([fc3f2cc](https://github.com/santiago25pvp-prog/mi-proyecto/commit/fc3f2cc8f3f5f74e78e77b098468662311b7250b))
+* protect API endpoints with JWT auth ([6dba0f0](https://github.com/santiago25pvp-prog/mi-proyecto/commit/6dba0f00fe90259d3e21350a4abc0db5453b4501))
+
 ## [1.1.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.0.0...v1.1.0) (2026-03-15)
 
 
