@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.3.0...v1.4.0) (2026-03-16)
+
+
+### Features
+
+* complete admin panel and JWT authentication ([87fcee9](https://github.com/santiago25pvp-prog/mi-proyecto/commit/87fcee9dea1d02a0ca85542b8ae3faf332172da2))
+
 ## [1.3.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.2.0...v1.3.0) (2026-03-16)
 
 
