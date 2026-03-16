@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.2.0...v1.3.0) (2026-03-16)
+
+
+### Features
+
+* add rate limiting to API endpoints ([177a6a3](https://github.com/santiago25pvp-prog/mi-proyecto/commit/177a6a30b43541e2a79f843620cc81c8e4b4e268))
+
 ## [1.2.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.1.0...v1.2.0) (2026-03-15)
 
 
