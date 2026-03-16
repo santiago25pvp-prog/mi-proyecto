@@ -7,8 +7,13 @@ const supabase = createClient(
 );
 
 async function getAccessToken() {
-    const email = 'juantilo123@gmail.com'; // Cambia esto por tu usuario de prueba
-    const password = 'juantilo123'; // Cambia esto por tu contraseña de prueba
+    const email = process.argv[2];
+    const password = process.argv[3];
+
+    if (!email || !password) {
+        console.error('Uso: npx ts-node tests/get-token.ts <email> <password>');
+        return;
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
