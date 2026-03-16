@@ -14,12 +14,12 @@ async function runQA() {
     const ingestRes = await ingestUrl(TEST_URL);
     console.log('Ingestion result:', ingestRes);
 
-    const { data: docs, error } = await supabase.from('documents').select('*').eq('metadata->url', TEST_URL);
+    const { data: docs, error } = await supabase.from('documents').select('*').contains('metadata', { url: TEST_URL });
     if (error) throw error;
     
     if (docs && docs.length > 0) {
         console.log('Ingestion OK. Docs found.');
-        console.log('Vector dimension check:', docs[0].embedding.length === 768 ? 'PASSED (768)' : 'FAILED');
+        console.log('Vector dimension check:', docs[0].vector.length === 3072 ? 'PASSED (3072)' : `FAILED: Expected 3072, got ${docs[0].vector.length}`);
     } else {
         throw new Error('No docs found after ingestion');
     }
