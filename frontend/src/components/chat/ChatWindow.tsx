@@ -1,37 +1,25 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useRagChat } from '../../hooks/useRagChat';
+import { MessageBubble } from '../molecules/MessageBubble';
+import { ChatInput } from './ChatInput';
 
 export const ChatWindow = () => {
-  const [input, setInput] = useState('');
   const { messages, loading, error, sendMessage } = useRagChat();
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    sendMessage(input);
-    setInput('');
-  };
-
   return (
-    <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-      <div style={{ height: '400px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px' }}>
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto border border-gray-700 bg-gray-900 rounded-lg overflow-hidden">
+      <div className="flex-grow overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
-          <div key={i} style={{ marginBottom: '10px', textAlign: m.role === 'user' ? 'right' : 'left' }}>
-            <span style={{ padding: '5px 10px', borderRadius: '5px', backgroundColor: m.role === 'user' ? '#0070f3' : '#eee', color: m.role === 'user' ? '#fff' : '#000' }}>
-              {m.content}
-            </span>
-          </div>
+          <MessageBubble key={i} message={m.content} isUser={m.role === 'user'} />
         ))}
+        {loading && (
+          <div className="text-gray-400 text-sm p-2 animate-pulse">Thinking...</div>
+        )}
+        {error && (
+          <div className="text-red-500 text-sm p-2">Error: {error}</div>
+        )}
       </div>
-      {loading && <div>Thinking...</div>}
-      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
-      <div style={{ marginTop: '10px' }}>
-        <input 
-          value={input} 
-          onChange={(e) => setInput(e.target.value)} 
-          style={{ width: '80%', padding: '5px' }}
-        />
-        <button onClick={handleSend} disabled={loading} style={{ width: '20%', padding: '5px' }}>Send</button>
-      </div>
+      <ChatInput onSend={sendMessage} disabled={loading} />
     </div>
   );
 };

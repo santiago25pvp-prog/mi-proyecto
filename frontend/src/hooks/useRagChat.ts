@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 export interface Message {
@@ -11,7 +11,7 @@ export const useRagChat = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = async (message: string) => {
+  const sendMessage = useCallback(async (message: string) => {
     setLoading(true);
     setError(null);
     setMessages((prev) => [...prev, { role: 'user', content: message }]);
@@ -32,15 +32,35 @@ export const useRagChat = () => {
       });
 
       if (!response.ok) throw new Error('Failed to send message');
+      if (!response.body) throw new Error('No response body');
 
-      const data = await response.json();
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantMessage = '';
+      
+      // Initialize assistant message in state
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        assistantMessage += chunk;
+        
+        // Update the last message (the assistant's)
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1].content = assistantMessage;
+          return newMessages;
+        });
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return { messages, loading, error, sendMessage };
 };

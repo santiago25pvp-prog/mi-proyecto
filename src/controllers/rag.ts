@@ -18,18 +18,34 @@ ${question}
 `;
 
 export const ragQuery = async (query: string) => {
-    const documents = await searchDocuments(query, 3);
-    const context = documents.map((doc: any) => doc.content).join('\n');
+    // 1. Search documents in vector DB
+    const documents = await searchDocuments(query, 5);
     
-    const model = genAI.getGenerativeModel({ 
-        model: "models/gemini-2.5-flash",
-        generationConfig: {
-            maxOutputTokens: 1000
-        }
-    });
+    if (!documents || documents.length === 0) {
+        return {
+            answer: "No encontré documentos relevantes para responder tu pregunta.",
+            sources: []
+        };
+    }
+
+    // 2. Build context from documents
+    const context = documents
+        .map((doc: any) => doc.content || doc.text || '')
+        .join('\n\n');
+
+    // 3. Generate answer with Gemini
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = promptTemplate(context, query);
     const result = await model.generateContent(prompt);
-    return result.response.text();
+    const answer = result.response.text();
+
+    // 4. Return answer with sources
+    const sources = documents.map((doc: any) => ({
+        name: doc.name || doc.title || 'Documento',
+        content: doc.content || doc.text || ''
+    }));
+
+    return { answer, sources };
 }
 
 export const chatHandler = async (req: Request, res: Response) => {
@@ -38,8 +54,9 @@ export const chatHandler = async (req: Request, res: Response) => {
         if (!query) {
             return res.status(400).json({ error: 'Query is required' });
         }
-        const answer = await ragQuery(query);
-        res.json({ answer });
+        
+        const result = await ragQuery(query);
+        res.json(result);
     } catch (error) {
         console.error('Error in chatHandler:', error);
         res.status(500).json({ error: 'Internal Server Error' });

@@ -13,7 +13,7 @@ export const getEmbedding = async (text: string): Promise<number[]> => {
         return embeddingCache.get(text)!;
     }
 
-    const model = genAI.getGenerativeModel({ model: "models/gemini-embedding-2-preview" });
+    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
     const result = await model.embedContent(text);
     const embedding = result.embedding.values;
 

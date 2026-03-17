@@ -33,20 +33,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md card">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          <h1 className="text-3xl font-bold text-white mb-2">
             Chat RAG
           </h1>
-          <p className="text-gray-500">
+          <p className="text-slate-400">
             Ingresá a tu cuenta
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Email
             </label>
             <Input
@@ -54,13 +54,13 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@email.com"
-              className="w-full"
+              className="w-full input"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Contraseña
             </label>
             <Input
@@ -68,35 +68,31 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full"
+              className="w-full input"
               required
             />
           </div>
 
           {error && (
-            <div className={`p-3 rounded-md text-sm ${
-              error.includes('exitoso') 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
+            <div className={`p-3 rounded-md text-sm bg-red-900/30 text-red-300 border border-red-800`}>
               {error}
             </div>
           )}
 
           <Button 
             type="submit" 
-            className="w-full"
+            className="w-full btn-primary"
             disabled={loading}
           >
             {loading ? 'Ingresando...' : 'Iniciar Sesión'}
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-500">
+        <p className="mt-6 text-center text-sm text-slate-400">
           ¿No tenés cuenta? 
           <button 
             onClick={() => router.push('/register')}
-            className="text-blue-600 hover:text-blue-700 font-medium ml-1"
+            className="text-blue-400 hover:text-blue-300 font-medium ml-1"
           >
             Registrate
           </button>

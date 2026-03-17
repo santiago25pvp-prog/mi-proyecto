@@ -7,9 +7,23 @@ import { ingestHandler, queryHandler } from './src/controllers/api';
 import adminRoutes from './src/routes/admin';
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3001;
 
 app.set('trust proxy', 1);
+
+// CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
 app.use(express.json());
 
 app.get('/health', publicLimiter, (req, res) => {

@@ -1,19 +1,36 @@
 import { supabase } from './vector-db';
 
+interface DocumentRow {
+  id: number;
+  content: string | null;
+  metadata: Record<string, any> | null;
+  created_at: string;
+}
+
+const transformDocument = (doc: DocumentRow) => ({
+  id: doc.id,
+  name: doc.metadata?.url || (doc.content ? doc.content.substring(0, 50) + (doc.content.length > 50 ? '...' : '') : `Documento ${doc.id}`),
+  content: doc.content,
+  created_at: doc.metadata?.created_at || doc.created_at,
+  metadata: doc.metadata,
+});
+
 export const listDocuments = async (page: number, pageSize: number) => {
   const start = (page - 1) * pageSize;
   const end = start + pageSize - 1;
 
   const { data, error, count } = await supabase
     .from('documents')
-    .select('*', { count: 'exact' })
-    .range(start, end);
+    .select('id, content, metadata, created_at', { count: 'exact' })
+    .range(start, end)
+    .limit(10);
 
   if (error) {
     throw new Error(`Error listing documents: ${error.message}`);
   }
 
-  return { data, count };
+  const transformedData = (data || []).map(transformDocument);
+  return { data: transformedData, count };
 };
 
 export const deleteDocument = async (id: number) => {
@@ -28,7 +45,7 @@ export const deleteDocument = async (id: number) => {
 };
 
 export const getStats = async () => {
-  const { count: documentCount, error: docError } = await supabase
+  const { count: docCount, error: docError } = await supabase
     .from('documents')
     .select('*', { count: 'exact', head: true });
 
@@ -37,5 +54,5 @@ export const getStats = async () => {
   }
 
   // query_logs table doesn't exist in migration 001, skipping for now
-  return { documentCount };
+  return { docCount, requestCount: 0 };
 };

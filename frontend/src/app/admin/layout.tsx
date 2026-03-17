@@ -17,9 +17,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAdmin) return null
 
   return (
-    <div className="admin-layout">
-      <nav>Admin Panel</nav>
-      {children}
+    <div className="min-h-screen bg-slate-900">
+      <nav className="bg-slate-800 shadow-lg border-b border-slate-700 px-6 py-4">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-semibold text-white">Admin Panel</h1>
+          <a href="/" className="text-blue-400 hover:text-blue-300 text-sm">
+            Volver al Chat
+          </a>
+        </div>
+      </nav>
+      <main className="max-w-6xl mx-auto p-6">
+        {children}
+      </main>
     </div>
   )
 }
