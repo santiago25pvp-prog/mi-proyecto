@@ -1,6 +1,6 @@
 'use client'
 import { useAuth } from '../hooks/useAuth'
-import { ChatWindow } from '../components/organisms/ChatWindow'
+import ChatWindow from '../components/ChatWindow'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'

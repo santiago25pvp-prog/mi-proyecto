@@ -1,6 +1,7 @@
 'use client'
 
-import { ChatWindow } from '../../components/organisms/ChatWindow';
+import { ChatWindow } from '../../components/chat/ChatWindow';
+import { Sidebar } from '../../components/organisms/Sidebar';
 import { useAuth } from '../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -19,9 +20,16 @@ export default function ChatPage() {
   if (!user) return null;
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <h1 className="text-3xl font-bold text-center mb-8">Chat RAG</h1>
-      <ChatWindow />
-    </main>
+    <div className="flex h-screen bg-slate-950 overflow-hidden">
+      <Sidebar>
+        <div className="text-slate-400 text-sm">
+          <p className="mb-2">No hay historial todavía.</p>
+          <p className="text-xs opacity-60">Start a new conversation above.</p>
+        </div>
+      </Sidebar>
+      <main className="flex-1 flex flex-col p-4 overflow-hidden">
+        <ChatWindow />
+      </main>
+    </div>
   );
 }
