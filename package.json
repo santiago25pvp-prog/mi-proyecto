@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"No backend tests configured\"",
+    "test": "node --test --require ts-node/register tests/admin-auth.test.ts",
+    "test:backend": "node --test --require ts-node/register tests/admin-auth.test.ts",
     "dev": "ts-node server.ts",
     "build": "tsc -p tsconfig.json",
     "start-server": "ts-node server.ts",
