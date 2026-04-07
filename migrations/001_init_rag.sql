@@ -6,5 +6,6 @@ create table if not exists documents (
   id bigserial primary key,
   content text,
   metadata jsonb,
-  embedding vector(768)
+  created_at timestamptz not null default now(),
+  embedding vector(3072)
 );

@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { GEMINI_EMBEDDING_DIMENSIONS } from '../backend/services/embedding';
 import { ingestUrl } from '../backend/services/ingestion';
 import { searchDocuments } from '../backend/services/retrieval';
 import { ragQuery } from '../backend/controllers/rag';
@@ -19,7 +20,12 @@ async function runQA() {
     
     if (docs && docs.length > 0) {
         console.log('Ingestion OK. Docs found.');
-        console.log('Vector dimension check:', docs[0].vector.length === 3072 ? 'PASSED (3072)' : `FAILED: Expected 3072, got ${docs[0].vector.length}`);
+        console.log(
+            'Embedding dimension check:',
+            docs[0].embedding.length === GEMINI_EMBEDDING_DIMENSIONS
+                ? `PASSED (${GEMINI_EMBEDDING_DIMENSIONS})`
+                : `FAILED: Expected ${GEMINI_EMBEDDING_DIMENSIONS}, got ${docs[0].embedding.length}`
+        );
     } else {
         throw new Error('No docs found after ingestion');
     }

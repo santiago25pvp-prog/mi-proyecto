@@ -12,7 +12,7 @@ export const ingestUrl = async (url: string) => {
         
         const docData = {
             content: chunk,
-            vector: embedding,
+            embedding,
             metadata: { url: url }
         };
         console.log('DEBUG: Attempting to insert document to Supabase:', JSON.stringify(docData));
