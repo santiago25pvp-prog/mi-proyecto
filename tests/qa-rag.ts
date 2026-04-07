@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import { ingestUrl } from '../src/services/ingestion';
-import { searchDocuments } from '../src/services/retrieval';
-import { ragQuery } from '../src/controllers/rag';
-import { supabase } from '../src/services/vector-db';
+import { ingestUrl } from '../backend/services/ingestion';
+import { searchDocuments } from '../backend/services/retrieval';
+import { ragQuery } from '../backend/controllers/rag';
+import { supabase } from '../backend/services/vector-db';
 
 const TEST_URL = 'https://es.wikipedia.org/wiki/Inteligencia_artificial';
 

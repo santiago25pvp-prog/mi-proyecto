@@ -1,10 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
-import { authMiddleware } from './src/middleware/authMiddleware';
-import { publicLimiter, authLimiter } from './src/middleware/rateLimiter';
-import { chatHandler } from './src/controllers/rag';
-import { ingestHandler, queryHandler } from './src/controllers/api';
-import adminRoutes from './src/routes/admin';
+import { authMiddleware } from './backend/middleware/authMiddleware';
+import { publicLimiter, authLimiter } from './backend/middleware/rateLimiter';
+import { chatHandler } from './backend/controllers/rag';
+import { ingestHandler, queryHandler } from './backend/controllers/api';
+import adminRoutes from './backend/routes/admin';
 
 const app = express();
 const port = process.env.PORT || 3001;
