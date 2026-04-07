@@ -3,7 +3,33 @@
 create extension if not exists vector;
 
 alter table if exists public.documents
-  add column if not exists created_at timestamptz not null default now();
+  add column if not exists created_at timestamptz default now();
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'documents'
+      and column_name = 'created_at'
+      and data_type = 'timestamp without time zone'
+  ) then
+    execute 'alter table public.documents alter column created_at type timestamptz using created_at at time zone ''UTC''';
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'documents'
+      and column_name = 'created_at'
+  ) then
+    execute 'alter table public.documents alter column created_at set default now()';
+    execute 'update public.documents set created_at = now() where created_at is null';
+    execute 'alter table public.documents alter column created_at set not null';
+  end if;
+end $$;
 
 do $$
 declare
