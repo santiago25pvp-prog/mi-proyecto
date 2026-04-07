@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.5.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.4.0...v1.5.0) (2026-04-07)
+
+
+### Features
+
+* **admin:** implement admin panel and protected routes ([09febff](https://github.com/santiago25pvp-prog/mi-proyecto/commit/09febff70a51e2bc180733c5253841195db5f7d6))
+* **chat:** implement ChatInterface and ChatInput ([f5a4726](https://github.com/santiago25pvp-prog/mi-proyecto/commit/f5a472665117a863ca568c5bb184b86655aeb9e4))
+* **chat:** implement markdown rendering and streaming API connection ([23d192b](https://github.com/santiago25pvp-prog/mi-proyecto/commit/23d192bdfda81f347ee6b1d6c1c81841966f7e56))
+* **chat:** implement RAG chat interface components and streaming logic ([55061b3](https://github.com/santiago25pvp-prog/mi-proyecto/commit/55061b3c87acac8a4c1365cb47d9bfb56e0aafa8))
+* **chat:** simplify chat interface for stability ([e05003b](https://github.com/santiago25pvp-prog/mi-proyecto/commit/e05003b02e8df4aa14b29d1fc4c34db45180b212))
+* **frontend:** implement auth and protected pages ([c6681c3](https://github.com/santiago25pvp-prog/mi-proyecto/commit/c6681c385d485144a0860f2e4ac0dadd46bc1330))
+* implement api client with jwt and rate limit handling ([897cf85](https://github.com/santiago25pvp-prog/mi-proyecto/commit/897cf856bdd66ab4dd90da4aa4c670910f0ed8a4))
+* implement auth integration and error handling toasts ([26c76f7](https://github.com/santiago25pvp-prog/mi-proyecto/commit/26c76f7c7f8c9a29b14a9dfcc3c82f468ab2c625))
+* implement chat interface components and streaming hook ([9c8fa03](https://github.com/santiago25pvp-prog/mi-proyecto/commit/9c8fa03c72c461739a474be2bdb946c197db093f))
+* implement layout with collapsible sidebar ([a4d38ce](https://github.com/santiago25pvp-prog/mi-proyecto/commit/a4d38ce05df1578eea6441119ef1a84c9ecf0f28))
+* implement root layout and initial page ([47be310](https://github.com/santiago25pvp-prog/mi-proyecto/commit/47be310b948fb59c59e6c21c6f2c3bc4a0ec5b84))
+* implement SPA layout and integrate react-query ([4bddae0](https://github.com/santiago25pvp-prog/mi-proyecto/commit/4bddae08cb37a31b564c962047a4a9560bbce793))
+* install and configure nextjs ([7c6db24](https://github.com/santiago25pvp-prog/mi-proyecto/commit/7c6db246a2f59d4be429cd9711a99be8d5ccc61a))
+* separate login and register pages ([55f2adb](https://github.com/santiago25pvp-prog/mi-proyecto/commit/55f2adb2d78d83b8db22b6fb80c291cdb79c6519))
+* **ui:** initialize shadcn and refactor auth feature structure ([0c3132e](https://github.com/santiago25pvp-prog/mi-proyecto/commit/0c3132ef4865032418d58a2eaa4b90abe11617a7))
+
+
+### Bug Fixes
+
+* **backend:** normalize created_at in schema migration ([f49d60f](https://github.com/santiago25pvp-prog/mi-proyecto/commit/f49d60fe0cd2d871705c41fe4e8ebc9398c53148))
+* **backend:** reconcile embedding schema with Gemini dimensions ([da7fbd1](https://github.com/santiago25pvp-prog/mi-proyecto/commit/da7fbd15462386a295c539a030c378f327246d6a))
+* **chat:** update api endpoint to /api/chat ([3c9dbb4](https://github.com/santiago25pvp-prog/mi-proyecto/commit/3c9dbb4cdab4143101accc4790ced5445fd04a04))
+* implement UI components and fix dependency issues ([a83115b](https://github.com/santiago25pvp-prog/mi-proyecto/commit/a83115b0d9b221cd46b2fadc469dc72251132c2e))
+
 ## [1.4.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.3.0...v1.4.0) (2026-03-16)
 
 
