@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { ragQuery } from '../backend/controllers/rag';
-import { GEMINI_EMBEDDING_DIMENSIONS } from '../backend/services/embedding';
-import { ingestUrl } from '../backend/services/ingestion';
-import { searchDocuments } from '../backend/services/retrieval';
-import { supabase } from '../backend/services/vector-db';
+import { ragQuery } from '../controllers/rag';
+import { GEMINI_EMBEDDING_DIMENSIONS } from '../services/embedding';
+import { ingestUrl } from '../services/ingestion';
+import { searchDocuments } from '../services/retrieval';
+import { supabase } from '../services/vector-db';
 
 const TEST_URL = 'https://es.wikipedia.org/wiki/Inteligencia_artificial';
 
