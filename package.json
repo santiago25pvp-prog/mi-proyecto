@@ -4,8 +4,8 @@
   "description": "Express backend service for mi-proyecto",
   "main": "dist/server.js",
   "scripts": {
-    "test": "node --test --require ts-node/register tests/admin-auth.test.ts",
-    "test:backend": "node --test --require ts-node/register tests/admin-auth.test.ts",
+    "test": "node --test --require ts-node/register tests/admin-auth.test.ts tests/api-routes.test.ts",
+    "test:backend": "node --test --require ts-node/register tests/admin-auth.test.ts tests/api-routes.test.ts",
     "dev": "ts-node server.ts",
     "build": "tsc -p tsconfig.json",
     "start-server": "ts-node server.ts",

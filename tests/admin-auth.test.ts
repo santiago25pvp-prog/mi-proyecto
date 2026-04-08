@@ -4,6 +4,9 @@ import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import express from 'express';
 
+process.env.SUPABASE_URL ??= 'https://example.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
+
 const adminRoutes = require('../routes/admin').default as import('express').Router;
 const { supabase } = require('../services/vector-db') as typeof import('../services/vector-db');
 const adminService = require('../services/adminService') as typeof import('../services/adminService');
