@@ -9,7 +9,11 @@
     "dev": "ts-node server.ts",
     "build": "tsc -p tsconfig.json",
     "start-server": "ts-node server.ts",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "admin:set-role": "ts-node scripts/set-admin.ts",
+    "auth:get-token": "ts-node scripts/get-token.ts",
+    "auth:verify": "ts-node scripts/verify-auth.ts",
+    "rag:qa": "ts-node scripts/qa-rag.ts"
   },
   "keywords": [],
   "author": "",
