@@ -21,7 +21,7 @@
   "type": "commonjs",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@supabase/supabase-js": "^2.49.1",
+    "@supabase/supabase-js": "2.101.1",
     "axios": "^1.13.6",
     "cheerio": "^1.2.0",
     "dotenv": "^16.4.7",
