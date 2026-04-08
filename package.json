@@ -19,6 +19,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": "20.18.1"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "2.101.1",
