@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.6.0...v1.7.0) (2026-04-09)
+
+
+### Features
+
+* add hot reload, readme and ci workflow ([2cabda6](https://github.com/santiago25pvp-prog/mi-proyecto/commit/2cabda69a83782bf151c5a8acaf51f3c25462ac6))
+
+
+### Bug Fixes
+
+* regenerate package-lock.json cleanly ([52c8df9](https://github.com/santiago25pvp-prog/mi-proyecto/commit/52c8df968a4c3bf06e7ee2883125d09212f2dcbd))
+* remove npm cache from ci ([e0e8213](https://github.com/santiago25pvp-prog/mi-proyecto/commit/e0e82136a16b196437aabbb4d053b133a3797c84))
+* use correct action versions in ci workflow ([e16a6b1](https://github.com/santiago25pvp-prog/mi-proyecto/commit/e16a6b12dad06dbfe36d91bc2119049ce099d2fc))
+
 ## [1.6.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.5.0...v1.6.0) (2026-04-09)
 
 
