@@ -1,4 +1,4 @@
-import { supabase } from '../backend/services/vector-db';
+import { supabase } from '../services/vector-db';
 
 async function setAdminRole() {
     const userId = 'eb4fdb29-8c67-4861-95c0-a2eca590bafd';

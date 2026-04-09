@@ -18,8 +18,8 @@ export const queryHandler = async (req: Request, res: Response) => {
     try {
         const { query } = req.body;
         if (!query) return res.status(400).json({ error: 'Query is required' });
-        const response = await ragQuery(query);
-        res.json({ response });
+        const result = await ragQuery(query);
+        res.json(result);
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Failed to process query' });

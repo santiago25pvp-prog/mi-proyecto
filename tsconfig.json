@@ -17,7 +17,10 @@
   },
   "include": [
     "server.ts",
-    "backend/**/*.ts",
+    "controllers/**/*.ts",
+    "middleware/**/*.ts",
+    "routes/**/*.ts",
+    "services/**/*.ts",
     "scripts/**/*.ts"
   ],
   "exclude": [

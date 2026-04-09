@@ -23,7 +23,7 @@ export const listDocuments = async (page: number, pageSize: number) => {
     .from('documents')
     .select('id, content, metadata, created_at', { count: 'exact' })
     .range(start, end)
-    .limit(10);
+    .limit(pageSize);
 
   if (error) {
     throw new Error(`Error listing documents: ${error.message}`);
