@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.5.0...v1.6.0) (2026-04-09)
+
+
+### Features
+
+* rebuild frontend, consolidate backend and add full test coverage ([3366bfc](https://github.com/santiago25pvp-prog/mi-proyecto/commit/3366bfc2947ca8342cacc8da4766cf38d52713db))
+* report partial ingest results ([2fd97ab](https://github.com/santiago25pvp-prog/mi-proyecto/commit/2fd97ab35b75f6c0e03def44b2c5680fe5a10f23))
+
+
+### Bug Fixes
+
+* lazy init supabase auth provider ([f4669c6](https://github.com/santiago25pvp-prog/mi-proyecto/commit/f4669c6ced6710579371af1cb2f05003426b2694))
+* use pageSize for admin documents pagination ([c4dd89a](https://github.com/santiago25pvp-prog/mi-proyecto/commit/c4dd89a94b54731ae03605ae0f1a78290e1f5ce0))
+
 ## [1.5.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.4.0...v1.5.0) (2026-04-07)
 
 
