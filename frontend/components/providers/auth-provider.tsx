@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { SignUpResult } from "@/lib/types";
 
@@ -19,18 +19,33 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const supabase = getSupabaseBrowserClient();
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(() =>
+    typeof window !== "undefined" ? getSupabaseBrowserClient() : null,
+  );
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (supabase || typeof window === "undefined") {
+      return;
+    }
+
+    setSupabase(getSupabaseBrowserClient());
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) {
+      return;
+    }
+
+    const client = supabase;
     let mounted = true;
 
     async function hydrateSession() {
       const {
         data: { session: nextSession },
-      } = await supabase.auth.getSession();
+      } = await client.auth.getSession();
 
       if (!mounted) {
         return;
@@ -45,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = client.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       setLoading(false);
@@ -57,8 +72,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase]);
 
+  function requireSupabase() {
+    if (!supabase) {
+      throw new Error("Supabase client is not ready yet");
+    }
+
+    return supabase;
+  }
+
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await requireSupabase().auth.signInWithPassword({
       email,
       password,
     });
@@ -69,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await requireSupabase().auth.signUp({
       email,
       password,
     });
@@ -84,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await requireSupabase().auth.signOut();
 
     if (error) {
       throw error;
@@ -98,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { session: nextSession },
-    } = await supabase.auth.getSession();
+    } = await requireSupabase().auth.getSession();
 
     return nextSession?.access_token ?? null;
   }
