@@ -2,11 +2,19 @@ import { searchDocuments } from './retrieval';
 import { generateAnswer } from './ai';
 import { VectorStore } from './vector-store.interface';
 
-export const executeRagQuery = async (vectorStore: VectorStore, query: string) => {
+interface RagQueryResponse {
+    answer: string;
+    sources: Array<{
+        name: string;
+        content: string;
+    }>;
+}
+
+export const executeRagQuery = async (vectorStore: VectorStore, query: string): Promise<RagQueryResponse> => {
     // 1. Search documents in vector DB
-    const documents = await searchDocuments(vectorStore, query, 5);
+    const searchResults = await searchDocuments(vectorStore, query, 5);
     
-    if (!documents || documents.length === 0) {
+    if (!searchResults || searchResults.length === 0) {
         return {
             answer: "No encontré documentos relevantes para responder tu pregunta.",
             sources: []
@@ -14,17 +22,17 @@ export const executeRagQuery = async (vectorStore: VectorStore, query: string) =
     }
 
     // 2. Build context from documents
-    const context = documents
-        .map((doc: any) => doc.content || doc.text || '')
+    const context = searchResults
+        .map(result => result.document.content)
         .join('\n\n');
 
     // 3. Generate answer with AI
     const answer = await generateAnswer(context, query);
 
     // 4. Format sources
-    const sources = documents.map((doc: any) => ({
-        name: doc.name || doc.title || 'Documento',
-        content: doc.content || doc.text || ''
+    const sources = searchResults.map(result => ({
+        name: result.document.name || 'Documento',
+        content: result.document.content
     }));
 
     return { answer, sources };

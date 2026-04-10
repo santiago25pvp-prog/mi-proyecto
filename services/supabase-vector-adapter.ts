@@ -1,9 +1,9 @@
 import { supabase } from './vector-db';
-import { VectorStore } from './vector-store.interface';
+import { VectorStore, SearchResult, InsertResult, Document } from './vector-store.interface';
 import { getEmbedding } from './embedding';
 
 export class SupabaseVectorAdapter implements VectorStore {
-  async searchDocuments(query: string, limit: number): Promise<any> {
+  async searchDocuments(query: string, limit: number): Promise<SearchResult[]> {
     const embedding = await getEmbedding(query);
     
     const { data, error } = await supabase.rpc('match_documents', {
@@ -15,11 +15,26 @@ export class SupabaseVectorAdapter implements VectorStore {
     if (error) {
         throw error;
     }
-    return data;
+
+    // Transform Supabase response to SearchResult[]
+    return (data || []).map((item: any) => ({
+      similarity: item.similarity,
+      document: {
+        id: item.id,
+        name: item.name,
+        content: item.content,
+        embedding: item.embedding,
+        metadata: item.metadata,
+        created_at: item.created_at
+      } as Document
+    }));
   }
 
-  async insertDocument(docData: { content: string; embedding: number[]; metadata: Record<string, any> }): Promise<{ error: any }> {
+  async insertDocument(docData: { content: string; embedding: number[]; metadata: Record<string, unknown> }): Promise<InsertResult> {
     const { error } = await supabase.from('documents').insert(docData);
-    return { error };
+    return { 
+      error: error || null,
+      success: !error
+    };
   }
 }
