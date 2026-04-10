@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../services/logger';
 import { ingestUrl } from '../services/ingestion';
 import { executeRagQuery } from '../services/rag';
 import { SupabaseVectorAdapter } from '../services/supabase-vector-adapter';
@@ -16,25 +17,35 @@ function isValidUrl(urlString: string): boolean {
 }
 
 export const ingestHandler = async (req: Request, res: Response) => {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    logger.info(`[${requestId}] Ingest request started`, { url: req.body.url });
+    
     try {
         const { url } = req.body;
-        if (!url) return res.status(400).json({ error: 'URL is required' });
-        if (!isValidUrl(url)) return res.status(400).json({ error: 'Invalid URL format' });
+        if (!url) {
+            logger.warn(`[${requestId}] URL missing in request body`);
+            return res.status(400).json({ error: 'URL is required' });
+        }
+        if (!isValidUrl(url)) {
+            logger.warn(`[${requestId}] Invalid URL format: ${url}`);
+            return res.status(400).json({ error: 'Invalid URL format' });
+        }
         
         const result = await ingestUrl(vectorStore, url);
+        logger.info(`[${requestId}] Ingest completed successfully`, { result });
         res.json(result);
     } catch (e) {
-        console.error(e);
-        const errorMessage = e instanceof Error ? e.message : 'Failed to ingest URL';
+        const error = e instanceof Error ? e.message : String(e);
+        logger.error(`[${requestId}] Ingest failed`, { error });
         
         // More specific error messages for debugging
-        if (errorMessage.includes('timeout')) {
+        if (error.includes('timeout')) {
             return res.status(408).json({ error: 'Request timeout: URL took too long to respond' });
         }
-        if (errorMessage.includes('404')) {
+        if (error.includes('404')) {
             return res.status(400).json({ error: 'URL not found' });
         }
-        if (errorMessage.includes('HTTP')) {
+        if (error.includes('HTTP')) {
             return res.status(502).json({ error: 'Failed to fetch URL' });
         }
         
@@ -43,13 +54,22 @@ export const ingestHandler = async (req: Request, res: Response) => {
 };
 
 export const queryHandler = async (req: Request, res: Response) => {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    logger.info(`[${requestId}] Query request started`, { query: req.body.query?.substring(0, 50) });
+    
     try {
         const { query } = req.body;
-        if (!query) return res.status(400).json({ error: 'Query is required' });
+        if (!query) {
+            logger.warn(`[${requestId}] Query missing in request body`);
+            return res.status(400).json({ error: 'Query is required' });
+        }
+        
         const result = await executeRagQuery(vectorStore, query);
+        logger.info(`[${requestId}] Query completed successfully`, { sourcesCount: result.sources.length });
         res.json(result);
     } catch (e) {
-        console.error(e);
+        const error = e instanceof Error ? e.message : String(e);
+        logger.error(`[${requestId}] Query failed`, { error });
         res.status(500).json({ error: 'Failed to process query' });
     }
 };

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import logger from './services/logger';
 import { authMiddleware } from './middleware/authMiddleware';
 import { publicLimiter, authLimiter } from './middleware/rateLimiter';
 import { chatHandler } from './controllers/rag';
@@ -17,11 +18,11 @@ function validateEnvironment(): void {
   const missing = required.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
-    console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
+    logger.error(`Missing required environment variables: ${missing.join(', ')}`);
     process.exit(1);
   }
 
-  console.log('✅ Environment variables validated');
+  logger.info('Environment variables validated');
 }
 
 validateEnvironment();
@@ -56,6 +57,17 @@ app.post('/ingest', authMiddleware, authLimiter, ingestHandler);
 app.post('/query', authMiddleware, authLimiter, queryHandler);
 app.use('/admin', adminRoutes);
 
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
+
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  logger.info(`Server running at http://localhost:${port}`);
 });
