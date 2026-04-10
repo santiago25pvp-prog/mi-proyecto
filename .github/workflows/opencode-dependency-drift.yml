@@ -1,4 +1,4 @@
-name: "[OpenCode] Pre-release check"
+name: "[OpenCode] Dependency drift"
  
 on:
   schedule:
