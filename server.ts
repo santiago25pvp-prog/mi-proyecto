@@ -6,6 +6,26 @@ import { chatHandler } from './controllers/rag';
 import { ingestHandler, queryHandler } from './controllers/api';
 import adminRoutes from './routes/admin';
 
+// Validate required environment variables at startup
+function validateEnvironment(): void {
+  const required = [
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'GEMINI_API_KEY'
+  ];
+
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+
+  console.log('✅ Environment variables validated');
+}
+
+validateEnvironment();
+
 const app = express();
 const port = process.env.PORT || 3001;
 
