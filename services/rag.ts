@@ -1,9 +1,10 @@
 import { searchDocuments } from './retrieval';
 import { generateAnswer } from './ai';
+import { VectorStore } from './vector-store.interface';
 
-export const executeRagQuery = async (query: string) => {
+export const executeRagQuery = async (vectorStore: VectorStore, query: string) => {
     // 1. Search documents in vector DB
-    const documents = await searchDocuments(query, 5);
+    const documents = await searchDocuments(vectorStore, query, 5);
     
     if (!documents || documents.length === 0) {
         return {

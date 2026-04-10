@@ -4,6 +4,9 @@ import { GEMINI_EMBEDDING_DIMENSIONS } from '../services/embedding';
 import { ingestUrl } from '../services/ingestion';
 import { searchDocuments } from '../services/retrieval';
 import { supabase } from '../services/vector-db';
+import { SupabaseVectorAdapter } from '../services/supabase-vector-adapter';
+
+const vectorStore = new SupabaseVectorAdapter();
 
 const TEST_URL = 'https://es.wikipedia.org/wiki/Inteligencia_artificial';
 
@@ -11,7 +14,7 @@ async function runQA() {
   console.log('--- Starting RAG QA ---');
 
   console.log('1. Testing Ingestion...');
-  const ingestRes = await ingestUrl(TEST_URL);
+  const ingestRes = await ingestUrl(vectorStore, TEST_URL);
   console.log('Ingestion result:', ingestRes);
 
   const { data: docs, error } = await supabase.from('documents').select('*').contains('metadata', { url: TEST_URL });
@@ -31,11 +34,11 @@ async function runQA() {
 
   console.log('2. Testing Retrieval...');
   const query = '¿Qué es la IA?';
-  const retrievalRes = await searchDocuments(query);
+  const retrievalRes = await searchDocuments(vectorStore, query);
   console.log('Retrieval found docs:', retrievalRes.length > 0 ? 'PASSED' : 'FAILED');
 
   console.log('3. Testing Service...');
-  const serviceRes = await executeRagQuery(query);
+  const serviceRes = await executeRagQuery(vectorStore, query);
   console.log('Service response:', serviceRes);
   console.log('QA Finished.');
 }

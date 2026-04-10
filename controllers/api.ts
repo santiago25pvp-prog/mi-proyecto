@@ -1,12 +1,15 @@
 import { Request, Response } from 'express';
 import { ingestUrl } from '../services/ingestion';
 import { executeRagQuery } from '../services/rag';
+import { SupabaseVectorAdapter } from '../services/supabase-vector-adapter';
+
+const vectorStore = new SupabaseVectorAdapter();
 
 export const ingestHandler = async (req: Request, res: Response) => {
     try {
         const { url } = req.body;
         if (!url) return res.status(400).json({ error: 'URL is required' });
-        const result = await ingestUrl(url);
+        const result = await ingestUrl(vectorStore, url);
         res.json(result);
     } catch (e) {
         console.error(e);
@@ -18,7 +21,24 @@ export const queryHandler = async (req: Request, res: Response) => {
     try {
         const { query } = req.body;
         if (!query) return res.status(400).json({ error: 'Query is required' });
+        const result = await executeRagQuery(vectorStore, query);
+        res.json(result);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Failed to process query' });
+    }
+};
+
+
+export const queryHandler = async (req: Request, res: Response) => {
+    try {
+        const { query } = req.body;
+        if (!query) return res.status(400).json({ error: 'Query is required' });
+<<<<<<< HEAD
         const result = await executeRagQuery(query);
+=======
+        const result = await executeRagQuery(vectorStore, query);
+>>>>>>> develop
         res.json(result);
     } catch (e) {
         console.error(e);
