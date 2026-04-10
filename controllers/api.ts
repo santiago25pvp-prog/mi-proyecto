@@ -29,19 +29,3 @@ export const queryHandler = async (req: Request, res: Response) => {
     }
 };
 
-
-export const queryHandler = async (req: Request, res: Response) => {
-    try {
-        const { query } = req.body;
-        if (!query) return res.status(400).json({ error: 'Query is required' });
-<<<<<<< HEAD
-        const result = await executeRagQuery(query);
-=======
-        const result = await executeRagQuery(vectorStore, query);
->>>>>>> develop
-        res.json(result);
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Failed to process query' });
-    }
-};
