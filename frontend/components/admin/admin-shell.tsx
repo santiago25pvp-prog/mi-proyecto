@@ -100,7 +100,12 @@ export function AdminShell() {
       }
 
       const result = await ingestDocument(token, ingestUrlValue.trim());
-      toast.success(`Ingesta iniciada. Chunks generados: ${result.chunks}`);
+      const message =
+        result.status === "partial_success"
+          ? `Ingesta parcial. ${result.chunks_inserted} chunks insertados, ${result.chunks_failed} fallaron.`
+          : `Ingesta completada. ${result.chunks_inserted} chunks insertados.`;
+
+      toast.success(message);
       setIngestUrlValue("");
       await loadDashboard(true);
     } catch (ingestError) {

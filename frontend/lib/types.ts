@@ -33,7 +33,12 @@ export interface AdminStats {
   requestCount: number | null;
 }
 
+export interface IngestResponse {
+  status: "success" | "partial_success";
+  chunks_inserted: number;
+  chunks_failed: number;
+}
+
 export interface SignUpResult {
   requiresEmailVerification: boolean;
 }
-

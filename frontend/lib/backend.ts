@@ -2,6 +2,7 @@ import type {
   AdminDocumentsResponse,
   AdminStats,
   ChatResponse,
+  IngestResponse,
 } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -54,7 +55,7 @@ export function sendChatMessage(token: string, query: string) {
 }
 
 export function ingestDocument(token: string, url: string) {
-  return request<{ status: string; chunks: number }>("/ingest", token, {
+  return request<IngestResponse>("/ingest", token, {
     method: "POST",
     body: JSON.stringify({ url }),
   });
@@ -73,4 +74,3 @@ export function deleteDocument(token: string, id: number) {
     method: "DELETE",
   });
 }
-
