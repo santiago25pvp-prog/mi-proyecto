@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.8.0...v1.9.0) (2026-04-10)
+
+
+### Features
+
+* feat: refactor and clean up project structure ([132344a](https://github.com/santiago25pvp-prog/mi-proyecto/commit/132344a))
+* feat: refactor architecture and decouple database ([247bbf3](https://github.com/santiago25pvp-prog/mi-proyecto/commit/247bbf3))
+
 ## [1.8.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.7.0...v1.8.0) (2026-04-10)
 
 
