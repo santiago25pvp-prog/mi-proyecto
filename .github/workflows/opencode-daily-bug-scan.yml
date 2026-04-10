@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      id-token: write
       contents: write
       pull-requests: write
       issues: write
@@ -20,25 +19,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
-      - name: Run OpenCode — Daily bug scan
-        uses: anomalyco/opencode/github@latest
+      - name: Install OpenCode
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: Run bug scan
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-        with:
-          model: google/gemini-3.1-flash-lite-preview
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: |
-            Scan recent commits (since the last run, or last 24h) for likely bugs
-            and propose minimal fixes.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          opencode run \
+            --model google/gemini-3.1-flash-lite-preview \
+            "Scan recent commits (since the last 24h) for likely bugs and propose minimal fixes.
 
             Grounding rules:
-            - Use ONLY concrete repo evidence (commit SHAs, PRs, file paths, diffs,
-              failing tests, CI signals).
+            - Use ONLY concrete repo evidence (commit SHAs, PRs, file paths, diffs, failing tests, CI signals).
             - Do NOT invent bugs; if evidence is weak, say so and skip.
             - Prefer the smallest safe fix; avoid refactors and unrelated cleanup.
 
-            If you find fixable bugs with high confidence, apply the minimal fix and
-            open a pull request. If no clear bugs are found, leave a summary comment
-            on the latest commit or open a brief issue describing your findings.
+            If you find fixable bugs with high confidence, apply the minimal fix and open a pull request.
+            If no clear bugs are found, print a brief summary of your findings."

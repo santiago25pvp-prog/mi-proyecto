@@ -1,16 +1,15 @@
-name: "[OpenCode] Dependency and SDK drift"
+name: "[OpenCode] Pre-release check"
  
 on:
   schedule:
-    - cron: "0 16 * * *" # 11:00 AM Colombia (UTC-5) → 16:00 UTC
+    - cron: "0 18 * * 4" # Jueves 1:00 PM Colombia (UTC-5) → 18:00 UTC
   workflow_dispatch:
  
 jobs:
-  dependency-drift:
+  pre-release-check:
     runs-on: ubuntu-latest
  
     permissions:
-      id-token: write
       contents: write
       pull-requests: write
       issues: write
@@ -20,36 +19,35 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
  
-      - name: Run OpenCode — Dependency and SDK drift
-        uses: anomalyco/opencode/github@latest
+      - name: Install OpenCode
+        run: curl -fsSL https://opencode.ai/install | bash
+ 
+      - name: Run pre-release check
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-        with:
-          model: google/gemini-3.1-flash-lite-preview
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          agent: build
-          prompt: |
-            Detect dependency and SDK drift and propose a minimal alignment plan.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          opencode run \
+            --model google/gemini-3.1-flash-lite-preview \
+            "Before tagging, verify changelog, migrations, feature flags, and tests.
  
             Grounding rules:
-            - Cite current and target versions from the repo when possible
-              (lockfiles, package manifests such as package.json, package-lock.json,
-               tsconfig.json, etc.).
-            - Do NOT guess versions; if targets are unclear, propose options and
-              label them as suggestions.
+            - Report ONLY what you can confirm from the repo and CI context.
+            - If a check cannot be verified, mark it explicitly as 'Unknown.'
  
-            Steps:
-            1. Read package.json and package-lock.json (and any other manifests).
-            2. Identify packages that are significantly outdated or have known
-               breaking changes in newer versions.
-            3. Identify any SDK version mismatches (e.g., TypeScript, Node.js,
-               library peer deps).
-            4. Produce a minimal, prioritized alignment plan. For each item include:
-               - Current version
-               - Suggested target version
-               - Reason / risk level
-            5. If safe minor/patch bumps can be applied automatically, do so on a
-               new branch and open a PR. Label speculative changes clearly.
+            Checklist to verify and report on:
+            1. CHANGELOG — Is there a CHANGELOG.md or equivalent? Does it have an
+               entry for the upcoming version? If missing or empty, flag it.
+            2. MIGRATIONS — Are there any pending database migration files that have
+               not been applied or documented? Check for files in common migration
+               folders (migrations/, db/migrate/, prisma/migrations/, etc.).
+            3. FEATURE FLAGS — List any feature flags that are still hardcoded as
+               experimental/disabled. Confirm if they are intended for this release.
+            4. TESTS — Check the latest CI run status. Are all test suites passing?
+               Note any failing or skipped tests.
+            5. SUMMARY — Produce a brief go/no-go recommendation with a bullet list
+               of blocking issues (if any) and non-blocking observations.
+ 
+            Print the full report to stdout."
  
