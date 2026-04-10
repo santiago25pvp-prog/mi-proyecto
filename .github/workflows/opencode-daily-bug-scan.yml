@@ -1,0 +1,43 @@
+name: "[OpenCode] Daily bug scan"
+
+on:
+  schedule:
+    - cron: "0 14 * * *" # 9:00 AM Colombia (UTC-5) → 14:00 UTC
+  workflow_dispatch: # permite ejecutar manualmente desde la pestaña Actions
+
+jobs:
+  bug-scan:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: write        # para commitear fixes directamente (modo Local)
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0           # historial completo para analizar commits recientes
+          persist-credentials: false
+
+      - name: Run OpenCode — Daily bug scan
+        uses: anomalyco/opencode/github@latest
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        with:
+          model: google/gemini-3.1-flash-lite-preview
+          prompt: |
+            Scan recent commits (since the last run, or last 24h) for likely bugs
+            and propose minimal fixes.
+
+            Grounding rules:
+            - Use ONLY concrete repo evidence (commit SHAs, PRs, file paths, diffs,
+              failing tests, CI signals).
+            - Do NOT invent bugs; if evidence is weak, say so and skip.
+            - Prefer the smallest safe fix; avoid refactors and unrelated cleanup.
+
+            If you find fixable bugs with high confidence, apply the minimal fix and
+            open a pull request. If no clear bugs are found, leave a summary comment
+            on the latest commit or open a brief issue describing your findings.
