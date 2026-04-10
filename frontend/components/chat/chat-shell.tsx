@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot, CornerDownLeft, FileText, Sparkles } from "lucide-react";
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -10,6 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { sendChatMessage } from "@/lib/backend";
+import {
+  getChatStorageKey,
+  loadPersistedChatStateWithKey,
+  savePersistedChatStateWithKey,
+} from "@/lib/chat-storage";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +31,44 @@ export function ChatShell() {
   const [pending, setPending] = useState(false);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const storageKey = getChatStorageKey(user?.id);
+
+  useEffect(() => {
+    const storedState = loadPersistedChatStateWithKey(window.localStorage, storageKey);
+
+    if (storedState) {
+      setMessages(storedState.messages);
+      setActiveMessageId(storedState.activeMessageId);
+    }
+
+    setHydrated(true);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    savePersistedChatStateWithKey(window.localStorage, {
+      messages,
+      activeMessageId,
+    }, storageKey);
+  }, [activeMessageId, hydrated, messages, storageKey]);
+
+  useEffect(() => {
+    if (activeMessageId) {
+      return;
+    }
+
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+
+    if (lastAssistantMessage) {
+      setActiveMessageId(lastAssistantMessage.id);
+    }
+  }, [activeMessageId, messages]);
 
   const activeSources =
     messages.find((message) => message.id === activeMessageId)?.sources || [];
@@ -127,7 +170,11 @@ export function ChatShell() {
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto px-2 pb-4">
-            {messages.length === 0 ? (
+            {!hydrated ? (
+              <div className="flex h-full items-center justify-center rounded-[1.75rem] border border-white/8 bg-white/[0.02] px-5 py-6 text-sm text-white/60">
+                Restaurando conversacion...
+              </div>
+            ) : messages.length === 0 ? (
               <div className="flex h-full flex-col justify-between gap-6 rounded-[1.75rem] border border-dashed border-white/10 bg-white/[0.02] px-5 py-6">
                 <div>
                   <div className="inline-flex rounded-full bg-[rgba(240,179,106,0.12)] p-3 text-[var(--accent)]">
