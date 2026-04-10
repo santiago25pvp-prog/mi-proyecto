@@ -1,9 +1,9 @@
 import { documentLoader } from './scraper';
 import { textSplitter } from './splitter';
 import { getEmbedding } from './embedding';
-import { supabase } from './vector-db';
+import { VectorStore } from './vector-store.interface';
 
-export const ingestUrl = async (url: string) => {
+export const ingestUrl = async (vectorStore: VectorStore, url: string) => {
     const text = await documentLoader(url);
     const chunks = textSplitter(text);
     let chunksInserted = 0;
@@ -12,19 +12,18 @@ export const ingestUrl = async (url: string) => {
     for (const chunk of chunks) {
         const embedding = await getEmbedding(chunk);
         
-        const docData = {
+        const { error } = await vectorStore.insertDocument({
             content: chunk,
             embedding,
             metadata: { url: url }
-        };
-        console.log('DEBUG: Attempting to insert document to Supabase:', JSON.stringify(docData));
-        const { error } = await supabase.from('documents').insert(docData);
+        });
+        
         if (error) {
             chunksFailed += 1;
-            console.error('DEBUG: Supabase insert error:', JSON.stringify(error));
+            console.error('DEBUG: Insert error:', JSON.stringify(error));
         } else {
             chunksInserted += 1;
-            console.log('DEBUG: Supabase insert successful');
+            console.log('DEBUG: Insert successful');
         }
     }
 
