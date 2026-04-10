@@ -3,6 +3,16 @@ import { VectorStore, SearchResult, InsertResult, Document } from './vector-stor
 import { getEmbedding } from './embedding';
 import { TaskType } from '@google/generative-ai';
 
+interface SupabaseMatchDocumentRow {
+  id: number;
+  name: string;
+  content: string;
+  embedding: number[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+  similarity: number;
+}
+
 export class SupabaseVectorAdapter implements VectorStore {
   async searchDocuments(query: string, limit: number): Promise<SearchResult[]> {
     const embedding = await getEmbedding(query, TaskType.RETRIEVAL_QUERY);
@@ -18,7 +28,7 @@ export class SupabaseVectorAdapter implements VectorStore {
     }
 
     // Transform Supabase response to SearchResult[]
-    return (data || []).map((item: any) => ({
+    return (data || []).map((item: SupabaseMatchDocumentRow) => ({
       similarity: item.similarity,
       document: {
         id: item.id,
