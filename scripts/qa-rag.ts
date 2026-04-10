@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { ragQuery } from '../controllers/rag';
+import { executeRagQuery } from '../services/rag';
 import { GEMINI_EMBEDDING_DIMENSIONS } from '../services/embedding';
 import { ingestUrl } from '../services/ingestion';
 import { searchDocuments } from '../services/retrieval';
@@ -34,9 +34,9 @@ async function runQA() {
   const retrievalRes = await searchDocuments(query);
   console.log('Retrieval found docs:', retrievalRes.length > 0 ? 'PASSED' : 'FAILED');
 
-  console.log('3. Testing Controller...');
-  const controllerRes = await ragQuery(query);
-  console.log('Controller response:', controllerRes);
+  console.log('3. Testing Service...');
+  const serviceRes = await executeRagQuery(query);
+  console.log('Service response:', serviceRes);
   console.log('QA Finished.');
 }
 
