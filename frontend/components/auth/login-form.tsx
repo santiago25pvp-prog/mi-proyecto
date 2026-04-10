@@ -14,18 +14,24 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
+    setError(null);
 
     try {
       await signIn(email, password);
-      toast.success("Sesion iniciada");
+      toast.success("Sesión iniciada");
       router.replace(nextPath);
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo iniciar sesión";
+
+      setError(message);
       toast.error(
-        error instanceof Error ? error.message : "No se pudo iniciar sesion",
+        message,
       );
     } finally {
       setSubmitting(false);
@@ -33,7 +39,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form className="space-y-4" onSubmit={handleSubmit} noValidate>
       <div className="space-y-2">
         <label className="text-sm text-white/70" htmlFor="email">
           Correo
@@ -51,7 +57,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
 
       <div className="space-y-2">
         <label className="text-sm text-white/70" htmlFor="password">
-          Contrasena
+          Contraseña
         </label>
         <Input
           id="password"
@@ -67,6 +73,16 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
       <Button className="w-full" disabled={submitting} type="submit">
         {submitting ? "Entrando..." : "Entrar"}
       </Button>
+
+      <p className="text-muted text-xs" role="status" aria-live="polite">
+        {submitting ? "Validando credenciales..." : ""}
+      </p>
+
+      {error ? (
+        <p className="text-sm text-[var(--danger)]" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <p className="text-muted text-sm">
         ¿No tienes cuenta?{" "}

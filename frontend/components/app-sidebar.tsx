@@ -32,11 +32,11 @@ export function AppSidebar() {
   async function handleSignOut() {
     try {
       await signOut();
-      toast.success("Sesion cerrada");
+      toast.success("Sesión cerrada");
       router.replace("/login");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "No se pudo cerrar la sesion",
+        error instanceof Error ? error.message : "No se pudo cerrar la sesión",
       );
     }
   }
@@ -54,7 +54,7 @@ export function AppSidebar() {
         </p>
       </div>
 
-      <div className="mt-8 space-y-2">
+      <nav aria-label="Navegación principal" className="mt-8 space-y-2">
         {navigation.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
 
@@ -62,6 +62,7 @@ export function AppSidebar() {
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center justify-between rounded-2xl px-4 py-3 text-sm transition-colors",
                 active
@@ -77,14 +78,14 @@ export function AppSidebar() {
             </Link>
           );
         })}
-      </div>
+      </nav>
 
       <div className="mt-auto space-y-4 pt-8">
         <div className="surface-soft rounded-[1.75rem] px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-white">
-                {user?.email || "Sesion activa"}
+                {user?.email || "Sesión activa"}
               </p>
               <p className="text-muted mt-1 text-xs">
                 {isAdmin ? "Rol administrador" : "Rol operador"}
@@ -108,4 +109,3 @@ export function AppSidebar() {
     </aside>
   );
 }
-

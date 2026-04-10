@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 const starterPrompts = [
   "Resume los documentos cargados con foco en riesgos y decisiones.",
-  "Encuentra la informacion mas relevante para explicar este tema a un cliente.",
+  "Encuentra la información más relevante para explicar este tema a un cliente.",
   "Extrae los puntos clave y cita las fuentes disponibles.",
 ];
 
@@ -95,7 +95,7 @@ export function ChatShell() {
       const token = await getAccessToken();
 
       if (!token) {
-        throw new Error("Tu sesion expiro. Vuelve a iniciar sesion.");
+        throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
       }
 
       const response = await sendChatMessage(token, prompt);
@@ -150,7 +150,7 @@ export function ChatShell() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="success">Sesion activa</Badge>
+              <Badge variant="success">Sesión activa</Badge>
               <Badge variant="accent">{user?.email || "usuario"}</Badge>
             </div>
           </div>
@@ -171,8 +171,12 @@ export function ChatShell() {
 
           <div className="flex-1 space-y-4 overflow-y-auto px-2 pb-4">
             {!hydrated ? (
-              <div className="flex h-full items-center justify-center rounded-[1.75rem] border border-white/8 bg-white/[0.02] px-5 py-6 text-sm text-white/60">
-                Restaurando conversacion...
+              <div
+                className="flex h-full items-center justify-center rounded-[1.75rem] border border-white/8 bg-white/[0.02] px-5 py-6 text-sm text-white/60"
+                role="status"
+                aria-live="polite"
+              >
+                Restaurando conversación...
               </div>
             ) : messages.length === 0 ? (
               <div className="flex h-full flex-col justify-between gap-6 rounded-[1.75rem] border border-dashed border-white/10 bg-white/[0.02] px-5 py-6">
@@ -211,6 +215,7 @@ export function ChatShell() {
                 return (
                   <button
                     key={message.id}
+                    aria-pressed={selectable ? selected : undefined}
                     className={cn(
                       "animate-rise block w-full rounded-[1.75rem] border px-4 py-4 text-left transition-colors",
                       message.role === "user"
@@ -266,7 +271,7 @@ export function ChatShell() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <p className="text-muted flex items-center gap-2 text-xs">
                 <CornerDownLeft className="h-3.5 w-3.5" />
-                Usa Enter para enviar y Shift + Enter para una nueva linea.
+                Usa Enter para enviar y Shift + Enter para una nueva línea.
               </p>
               <Button disabled={pending || !input.trim()} type="submit">
                 {pending ? "Consultando..." : "Enviar pregunta"}
@@ -274,7 +279,11 @@ export function ChatShell() {
             </div>
           </form>
 
-          {error ? <p className="mt-4 text-sm text-[var(--danger)]">{error}</p> : null}
+          {error ? (
+            <p className="mt-4 text-sm text-[var(--danger)]" role="alert">
+              {error}
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -298,7 +307,7 @@ export function ChatShell() {
           {activeSources.length === 0 ? (
             <div className="surface-soft rounded-[1.75rem] px-4 py-5">
               <p className="text-sm text-white/75">
-                Aun no hay fuentes seleccionadas. Envia una pregunta o toca una
+                Aún no hay fuentes seleccionadas. Envía una pregunta o toca una
                 respuesta del asistente.
               </p>
             </div>

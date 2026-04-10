@@ -45,7 +45,7 @@ export function AdminShell() {
     const token = await getAccessToken();
 
     if (!token) {
-      throw new Error("No hay una sesion valida para consultar el panel.");
+      throw new Error("No hay una sesión válida para consultar el panel.");
     }
 
     if (showRefreshingState) {
@@ -96,7 +96,7 @@ export function AdminShell() {
       const token = await getAccessToken();
 
       if (!token) {
-        throw new Error("No hay una sesion valida para iniciar la ingesta.");
+        throw new Error("No hay una sesión válida para iniciar la ingesta.");
       }
 
       const result = await ingestDocument(token, ingestUrlValue.trim());
@@ -126,7 +126,7 @@ export function AdminShell() {
       const token = await getAccessToken();
 
       if (!token) {
-        throw new Error("No hay una sesion valida para eliminar documentos.");
+        throw new Error("No hay una sesión válida para eliminar documentos.");
       }
 
       await deleteDocument(token, id);
@@ -182,7 +182,7 @@ export function AdminShell() {
             {stats?.requestCount ?? 0}
           </p>
           <p className="text-muted mt-2 text-sm">
-            El backend aun reporta este conteo en cero.
+            El backend aún reporta este conteo en cero.
           </p>
         </div>
         <div className="surface-panel rounded-[2rem] px-5 py-5">
@@ -202,8 +202,8 @@ export function AdminShell() {
           <p className="section-kicker eyebrow-dot">Nueva ingesta</p>
           <h3 className="mt-4 text-2xl font-semibold">Cargar una URL</h3>
           <p className="text-muted mt-3 text-sm leading-6">
-            Envia una URL al scraper existente. Si el backend necesita ajuste de
-            esquema vectorial, aqui lo veras reflejado.
+            Envía una URL al scraper existente. Si el backend necesita ajuste de
+            esquema vectorial, aquí lo verás reflejado.
           </p>
 
           <form className="mt-6 space-y-4" onSubmit={handleIngest}>
@@ -226,7 +226,7 @@ export function AdminShell() {
               <p className="section-kicker eyebrow-dot">Inventario</p>
               <h3 className="mt-4 text-2xl font-semibold">Documentos actuales</h3>
               <p className="text-muted mt-3 text-sm leading-6">
-                Vista rapida del indice que expone el backend administrativo.
+                Vista rápida del índice que expone el backend administrativo.
               </p>
             </div>
             <Badge variant="default">{count} total</Badge>
@@ -237,10 +237,12 @@ export function AdminShell() {
           {loading ? (
             <div className="text-muted py-8 text-sm">Cargando documentos...</div>
           ) : error ? (
-            <div className="py-8 text-sm text-[var(--danger)]">{error}</div>
+            <div className="py-8 text-sm text-[var(--danger)]" role="alert">
+              {error}
+            </div>
           ) : documents.length === 0 ? (
             <div className="surface-soft rounded-[1.5rem] px-4 py-5 text-sm text-white/75">
-              No hay documentos registrados todavia.
+              No hay documentos registrados todavía.
             </div>
           ) : (
             <div className="space-y-3">
