@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.9.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.8.0...v1.9.0) (2026-04-10)
+
+
+### Features
+
+* refactor and clean up project structure ([132344a](https://github.com/santiago25pvp-prog/mi-proyecto/commit/132344a9d2590875af41f16119df9dac05017eab))
+* refactor architecture and decouple database ([247bbf3](https://github.com/santiago25pvp-prog/mi-proyecto/commit/247bbf38b6e7cceb5fb9efafc38723156b3e1e41))
+
+
+### Bug Fixes
+
+* add github_token to opencode workflows ([2d561e8](https://github.com/santiago25pvp-prog/mi-proyecto/commit/2d561e8f4763340e52f5f7a2095d297a81e0db6b))
+* resolve merge conflicts after sync ([e969258](https://github.com/santiago25pvp-prog/mi-proyecto/commit/e9692588125b064af74774061608231dbe8d6991))
+* switch to opencode run for automation workflows ([8be48ab](https://github.com/santiago25pvp-prog/mi-proyecto/commit/8be48ab8a27727d569527aa0ff8e2734b987a106))
+* use valid --log-level DEBUG flag for opencode workflows ([da1d83d](https://github.com/santiago25pvp-prog/mi-proyecto/commit/da1d83d617cad41788fc3c7417862d90f950164a))
+
 ## [1.8.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.7.0...v1.8.0) (2026-04-10)
 
 
