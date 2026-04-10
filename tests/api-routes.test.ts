@@ -9,8 +9,6 @@ process.env.GEMINI_API_KEY ??= 'test-gemini-key';
 process.env.SUPABASE_URL ??= 'https://example.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
 
-const { authMiddleware } = require('../middleware/authMiddleware') as typeof import('../middleware/authMiddleware');
-const { authLimiter } = require('../middleware/rateLimiter') as typeof import('../middleware/rateLimiter');
 const ragModule = require('../controllers/rag') as typeof import('../controllers/rag');
 const ragService = require('../services/rag') as typeof import('../services/rag');
 const apiModule = require('../controllers/api') as typeof import('../controllers/api');
@@ -20,6 +18,7 @@ const ingestionService = require('../services/ingestion') as typeof import('../s
 const scraperService = require('../services/scraper') as typeof import('../services/scraper');
 const splitterService = require('../services/splitter') as typeof import('../services/splitter');
 const embeddingService = require('../services/embedding') as typeof import('../services/embedding');
+const { createApp: buildApp } = require('../server') as typeof import('../server');
 
 const { chatHandler } = ragModule;
 const { ingestHandler, queryHandler } = apiModule;
@@ -27,18 +26,9 @@ const { ingestHandler, queryHandler } = apiModule;
 type RestoreFn = () => void;
 type AuthResult = Promise<{ data: { user: any }; error: any }>;
 
-function createApp() {
-  const app = express();
-  app.use(express.json());
-  app.post('/chat', authMiddleware, authLimiter, chatHandler);
-  app.post('/ingest', authMiddleware, authLimiter, ingestHandler);
-  app.post('/query', authMiddleware, authLimiter, queryHandler);
-  return app;
-}
-
 async function startServer() {
   return await new Promise<{ server: http.Server; baseUrl: string }>((resolve) => {
-    const server = createApp().listen(0, '127.0.0.1', () => {
+    const server = buildApp().listen(0, '127.0.0.1', () => {
       const { port } = server.address() as AddressInfo;
       resolve({
         server,
@@ -151,6 +141,17 @@ function mockSupabaseInsert(
   supabase.from = ((table: string) => ({
     insert: (values: any) => implementation(table, values),
   })) as unknown as typeof supabase.from;
+
+  return () => {
+    supabase.from = original;
+  };
+}
+
+function mockSupabaseFrom(
+  implementation: (table: string) => any,
+): RestoreFn {
+  const original = supabase.from.bind(supabase);
+  supabase.from = implementation as typeof supabase.from;
 
   return () => {
     supabase.from = original;
@@ -337,7 +338,8 @@ test('/chat route responses', async (t) => {
 
       assert.equal(response.status, 400);
       assert.deepEqual(await response.json(), {
-        error: 'Query is required',
+        error: 'Invalid request',
+        details: ['Query is required'],
       });
     } finally {
       restoreAll(restores);
@@ -479,6 +481,78 @@ test('/chat route responses', async (t) => {
   });
 });
 
+test('/health route responses', async (t) => {
+  await t.test('returns dependency status when Supabase responds', async () => {
+    const restores = [
+      mockSupabaseFrom((table: string) => ({
+        select: () => ({
+          limit: async () => {
+            assert.equal(table, 'documents');
+            return { data: [], error: null };
+          },
+        }),
+      })),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await fetch(`${baseUrl}/health`);
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        status: 'ok',
+        dependencies: { supabase: 'ok' },
+      });
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
+  await t.test('returns 500 when dependency check fails', async () => {
+    const restores = [
+      mockSupabaseFrom(() => ({
+        select: () => ({
+          limit: async () => ({
+            data: null,
+            error: { message: 'supabase down' },
+          }),
+        }),
+      })),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await fetch(`${baseUrl}/health`);
+
+      assert.equal(response.status, 500);
+      assert.deepEqual(await response.json(), {
+        error: 'Internal Server Error',
+      });
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+});
+
+test('unknown routes return JSON 404s', async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    const response = await fetch(`${baseUrl}/missing-route`);
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), {
+      error: 'Not Found',
+    });
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('/query route responses', async (t) => {
   await t.test('returns 400 when query is missing', async () => {
     const restores = [
@@ -495,7 +569,8 @@ test('/query route responses', async (t) => {
 
       assert.equal(response.status, 400);
       assert.deepEqual(await response.json(), {
-        error: 'Query is required',
+        error: 'Invalid request',
+        details: ['Query is required'],
       });
     } finally {
       restoreAll(restores);
@@ -581,7 +656,7 @@ test('/query route responses', async (t) => {
 
       assert.equal(response.status, 500);
       assert.deepEqual(await response.json(), {
-        error: 'Failed to process query',
+        error: 'Internal Server Error',
       });
     } finally {
       restoreAll(restores);
@@ -606,7 +681,32 @@ test('/ingest route responses', async (t) => {
 
       assert.equal(response.status, 400);
       assert.deepEqual(await response.json(), {
-        error: 'URL is required',
+        error: 'Invalid request',
+        details: ['URL is required'],
+      });
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
+  await t.test('returns 400 when url is not http or https', async () => {
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('ingest-invalid') },
+        error: null,
+      })),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postJson(baseUrl, '/ingest', { url: 'ftp://example.com' }, 'ingest-invalid-token');
+
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), {
+        error: 'Invalid request',
+        details: ['url must be a valid http or https URL'],
       });
     } finally {
       restoreAll(restores);
@@ -805,9 +905,10 @@ test('/ingest route responses', async (t) => {
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'not-a-url' }, 'ingest-invalid-url-token');
 
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 400);
       assert.deepEqual(await response.json(), {
-        error: 'Failed to ingest URL',
+        error: 'Invalid request',
+        details: ['url must be a valid http or https URL'],
       });
     } finally {
       restoreAll(restores);

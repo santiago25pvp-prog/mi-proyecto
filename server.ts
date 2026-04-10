@@ -6,6 +6,9 @@ import { publicLimiter, authLimiter } from './middleware/rateLimiter';
 import { chatHandler } from './controllers/rag';
 import { ingestHandler, queryHandler } from './controllers/api';
 import adminRoutes from './routes/admin';
+import { validateRequest } from './middleware/requestValidation';
+import { checkDependencies } from './services/health';
+import { errorMiddleware, notFoundHandler } from './middleware/errorMiddleware';
 
 // Validate required environment variables at startup
 function validateEnvironment(): void {
@@ -27,37 +30,72 @@ function validateEnvironment(): void {
 
 validateEnvironment();
 
-const app = express();
+export function createApp() {
+  const app = express();
+
+  app.set('trust proxy', 1);
+
+  app.use((req, res, next) => {
+    const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
+    res.header('Access-Control-Allow-Origin', allowedOrigin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+
+    next();
+  });
+
+  app.use(express.json());
+
+  app.get('/health', publicLimiter, async (_req, res) => {
+    const dependencies = await checkDependencies();
+    res.json({ status: 'ok', dependencies });
+  });
+
+  app.post(
+    '/chat',
+    authMiddleware,
+    authLimiter,
+    validateRequest([
+      { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
+    ]),
+    chatHandler,
+  );
+
+  app.post(
+    '/ingest',
+    authMiddleware,
+    authLimiter,
+    validateRequest([
+      { source: 'body', field: 'url', type: 'url', required: true, requiredMessage: 'URL is required', message: 'url must be a valid http or https URL' },
+    ]),
+    ingestHandler,
+  );
+
+  app.post(
+    '/query',
+    authMiddleware,
+    authLimiter,
+    validateRequest([
+      { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
+    ]),
+    queryHandler,
+  );
+
+  app.use('/admin', adminRoutes);
+
+  app.use(notFoundHandler);
+  app.use(errorMiddleware);
+
+  return app;
+}
+
 const port = process.env.PORT || 3001;
+const app = createApp();
 
-app.set('trust proxy', 1);
-
-// CORS middleware
-app.use((req, res, next) => {
-  const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
-  res.header('Access-Control-Allow-Origin', allowedOrigin);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
-
-app.use(express.json());
-
-app.get('/health', publicLimiter, (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-app.post('/chat', authMiddleware, authLimiter, chatHandler);
-app.post('/ingest', authMiddleware, authLimiter, ingestHandler);
-app.post('/query', authMiddleware, authLimiter, queryHandler);
-app.use('/admin', adminRoutes);
-
-// Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   process.exit(0);
@@ -68,6 +106,8 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-app.listen(port, () => {
-  logger.info(`Server running at http://localhost:${port}`);
-});
+if (require.main === module) {
+  app.listen(port, () => {
+    logger.info(`Server running at http://localhost:${port}`);
+  });
+}

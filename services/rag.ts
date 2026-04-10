@@ -10,6 +10,14 @@ interface RagQueryResponse {
     }>;
 }
 
+function getDocumentContent(result: any): string {
+    return result?.document?.content ?? result?.content ?? result?.text ?? '';
+}
+
+function getDocumentName(result: any): string {
+    return result?.document?.name ?? result?.name ?? result?.title ?? 'Documento';
+}
+
 export const executeRagQuery = async (vectorStore: VectorStore, query: string): Promise<RagQueryResponse> => {
     // 1. Search documents in vector DB
     const searchResults = await searchDocuments(vectorStore, query, 5);
@@ -23,7 +31,8 @@ export const executeRagQuery = async (vectorStore: VectorStore, query: string): 
 
     // 2. Build context from documents
     const context = searchResults
-        .map(result => result.document.content)
+        .map(result => getDocumentContent(result))
+        .filter(Boolean)
         .join('\n\n');
 
     // 3. Generate answer with AI
@@ -31,8 +40,8 @@ export const executeRagQuery = async (vectorStore: VectorStore, query: string): 
 
     // 4. Format sources
     const sources = searchResults.map(result => ({
-        name: result.document.name || 'Documento',
-        content: result.document.content
+        name: getDocumentName(result),
+        content: getDocumentContent(result)
     }));
 
     return { answer, sources };

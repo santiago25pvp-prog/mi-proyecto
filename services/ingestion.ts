@@ -20,10 +20,8 @@ export const ingestUrl = async (vectorStore: VectorStore, url: string) => {
         
         if (error) {
             chunksFailed += 1;
-            console.error('DEBUG: Insert error:', JSON.stringify(error));
         } else {
             chunksInserted += 1;
-            console.log('DEBUG: Insert successful');
         }
     }
 

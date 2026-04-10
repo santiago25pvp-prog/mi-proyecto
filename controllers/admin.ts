@@ -1,32 +1,23 @@
 import { Request, Response } from 'express';
 import * as adminService from '../services/adminService';
+import { getValidatedRequest } from '../middleware/requestValidation';
 
 export const listDocumentsHandler = async (req: Request, res: Response) => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 10;
-    const documents = await adminService.listDocuments(page, pageSize);
-    res.json(documents);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to list documents' });
-  }
+  const { query } = getValidatedRequest(res);
+  const page = query.page as number;
+  const pageSize = query.pageSize as number;
+  const documents = await adminService.listDocuments(page, pageSize);
+  res.json(documents);
 };
 
 export const deleteDocumentHandler = async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id as string);
-    await adminService.deleteDocument(id);
-    res.json({ message: 'Document deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to delete document' });
-  }
+  const { params } = getValidatedRequest(res);
+  const id = params.id as number;
+  await adminService.deleteDocument(id);
+  res.json({ message: 'Document deleted successfully' });
 };
 
 export const getStatsHandler = async (req: Request, res: Response) => {
-  try {
-    const stats = await adminService.getStats();
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get stats' });
-  }
+  const stats = await adminService.getStats();
+  res.json(stats);
 };

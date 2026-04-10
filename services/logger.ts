@@ -1,4 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import winston from 'winston';
+
+const logDir = path.resolve(process.cwd(), 'logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
 
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
@@ -11,13 +18,13 @@ const logger = winston.createLogger({
   defaultMeta: { service: 'mi-proyecto' },
   transports: [
     new winston.transports.File({ 
-      filename: 'logs/error.log', 
+      filename: path.join(logDir, 'error.log'), 
       level: 'error',
       maxsize: 5242880, // 5MB
       maxFiles: 5
     }),
     new winston.transports.File({ 
-      filename: 'logs/combined.log',
+      filename: path.join(logDir, 'combined.log'),
       maxsize: 5242880,
       maxFiles: 10
     })
