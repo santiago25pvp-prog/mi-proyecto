@@ -40,6 +40,8 @@ export function AdminShell() {
   const [ingesting, setIngesting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function loadDashboard(showRefreshingState = false) {
     const token = await getAccessToken();
@@ -91,6 +93,7 @@ export function AdminShell() {
     }
 
     setIngesting(true);
+    setIngestError(null);
 
     try {
       const token = await getAccessToken();
@@ -109,10 +112,14 @@ export function AdminShell() {
       setIngestUrlValue("");
       await loadDashboard(true);
     } catch (ingestError) {
-      toast.error(
+      const message =
         ingestError instanceof Error
           ? ingestError.message
-          : "No se pudo ingerir la URL.",
+          : "No se pudo ingerir la URL.";
+
+      setIngestError(message);
+      toast.error(
+        message,
       );
     } finally {
       setIngesting(false);
@@ -121,6 +128,7 @@ export function AdminShell() {
 
   async function handleDelete(id: number) {
     setDeletingId(id);
+    setDeleteError(null);
 
     try {
       const token = await getAccessToken();
@@ -133,10 +141,14 @@ export function AdminShell() {
       toast.success("Documento eliminado");
       await loadDashboard(true);
     } catch (deleteError) {
-      toast.error(
+      const message =
         deleteError instanceof Error
           ? deleteError.message
-          : "No se pudo eliminar el documento.",
+          : "No se pudo eliminar el documento.";
+
+      setDeleteError(message);
+      toast.error(
+        message,
       );
     } finally {
       setDeletingId(null);
@@ -186,7 +198,7 @@ export function AdminShell() {
           </p>
         </div>
         <div className="surface-panel rounded-[2rem] px-5 py-5">
-          <p className="section-kicker">Proteccion</p>
+          <p className="section-kicker">Protección</p>
           <div className="mt-4 flex items-center gap-3 text-white">
             <ShieldCheck className="h-8 w-8 text-[var(--success)]" />
             <div>
@@ -217,6 +229,12 @@ export function AdminShell() {
               <UploadCloud className="h-4 w-4" />
               {ingesting ? "Ingeriendo..." : "Ingerir documento"}
             </Button>
+
+            {ingestError ? (
+              <p className="text-sm text-[var(--danger)]" role="alert">
+                {ingestError}
+              </p>
+            ) : null}
           </form>
         </div>
 
@@ -235,7 +253,9 @@ export function AdminShell() {
           <Separator className="my-5" />
 
           {loading ? (
-            <div className="text-muted py-8 text-sm">Cargando documentos...</div>
+            <div className="text-muted py-8 text-sm" role="status" aria-live="polite">
+              Cargando documentos...
+            </div>
           ) : error ? (
             <div className="py-8 text-sm text-[var(--danger)]" role="alert">
               {error}
@@ -277,6 +297,12 @@ export function AdminShell() {
               ))}
             </div>
           )}
+
+          {deleteError ? (
+            <p className="mt-4 text-sm text-[var(--danger)]" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
         </div>
       </section>
     </div>

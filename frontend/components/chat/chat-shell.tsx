@@ -114,6 +114,7 @@ export function ChatShell() {
           ? submitError.message
           : "No se pudo completar la consulta.";
 
+      setInput(prompt);
       setError(message);
       toast.error(message);
     } finally {
@@ -132,6 +133,14 @@ export function ChatShell() {
       void submitPrompt();
     }
   }
+
+  const statusMessage = !hydrated
+    ? "Restaurando conversación..."
+    : pending
+      ? "Consultando contexto y preparando respuesta..."
+      : error
+        ? `Error: ${error}`
+        : "Listo para enviar una nueva pregunta.";
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.75fr)_360px]">
@@ -157,6 +166,10 @@ export function ChatShell() {
         </div>
 
         <div className="surface-panel flex min-h-[540px] flex-col rounded-[2rem] p-4 lg:p-5">
+          <p className="sr-only" aria-live="polite" role="status">
+            {statusMessage}
+          </p>
+
           <div className="flex items-center justify-between gap-4 px-2 pb-4">
             <div>
               <p className="text-sm font-medium text-white">Transcript</p>
@@ -216,6 +229,13 @@ export function ChatShell() {
                   <button
                     key={message.id}
                     aria-pressed={selectable ? selected : undefined}
+                    aria-label={
+                      selectable
+                        ? selected
+                          ? "Respuesta del asistente seleccionada"
+                          : "Seleccionar respuesta del asistente"
+                        : undefined
+                    }
                     className={cn(
                       "animate-rise block w-full rounded-[1.75rem] border px-4 py-4 text-left transition-colors",
                       message.role === "user"
@@ -247,7 +267,11 @@ export function ChatShell() {
             )}
 
             {pending ? (
-              <div className="animate-fade max-w-[88%] rounded-[1.75rem] border border-white/8 bg-white/[0.03] px-4 py-4 text-white/70">
+              <div
+                className="animate-fade max-w-[88%] rounded-[1.75rem] border border-white/8 bg-white/[0.03] px-4 py-4 text-white/70"
+                role="status"
+                aria-live="polite"
+              >
                 <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/45">
                   <Bot className="h-3.5 w-3.5" />
                   Asistente
@@ -283,6 +307,18 @@ export function ChatShell() {
             <p className="mt-4 text-sm text-[var(--danger)]" role="alert">
               {error}
             </p>
+          ) : null}
+
+          {error ? (
+            <Button
+              className="mt-3"
+              disabled={pending || !input.trim()}
+              onClick={() => void submitPrompt()}
+              type="button"
+              variant="secondary"
+            >
+              Reintentar con el mismo borrador
+            </Button>
           ) : null}
         </div>
       </section>

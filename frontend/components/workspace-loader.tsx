@@ -1,4 +1,9 @@
-export function WorkspaceLoader({ label }: { label: string }) {
+interface WorkspaceLoaderProps {
+  label: string;
+  hint?: string;
+}
+
+export function WorkspaceLoader({ label, hint }: WorkspaceLoaderProps) {
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
       <div
@@ -11,7 +16,7 @@ export function WorkspaceLoader({ label }: { label: string }) {
           {label}
         </h1>
         <p className="text-muted mt-3 text-sm">
-          Sincronizando sesión, fuentes y contexto operativo.
+          {hint || "Sincronizando sesión, fuentes y contexto operativo."}
         </p>
       </div>
     </div>
