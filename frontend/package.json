@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --test --require ./tests/register.cjs tests/chat-storage.test.ts tests/auth-session.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
