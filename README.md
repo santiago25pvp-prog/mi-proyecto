@@ -30,7 +30,16 @@
 
 - El backend se valida con `node:test` en `tests/admin-auth.test.ts` y `tests/api-routes.test.ts`.
 - Hay cobertura de autenticacion, autorizacion, rate limiting y respuestas de `/chat`, `/query` y `/ingest`.
+- El frontend tambien tiene tests de helpers en `frontend/tests/chat-storage.test.ts` y `frontend/tests/auth-session.test.ts`.
 - El workflow de GitHub Actions ejecuta tests y builds en PRs hacia `main` y `develop`.
+
+### Operacion y robustez
+
+- `server.ts` valida variables de entorno en el arranque y expone un healthcheck con verificacion de dependencia.
+- El backend usa logging estructurado con Winston y request IDs en los handlers principales.
+- El scraper tiene timeout, limites de redireccion y limites de tamaño para evitar DoS triviales.
+- El chat del frontend persiste transcript y seleccion activa por usuario en `localStorage`.
+- La autenticacion de frontend refresca la sesion cuando el token esta por expirar.
 
 ## Instalacion
 
@@ -130,7 +139,7 @@ Puertos por defecto:
   Implementa la logica de dominio del RAG y del panel administrativo.
   - `scraper.ts`: descarga y limpia HTML.
   - `splitter.ts`: parte el texto en chunks.
-  - `embedding.ts`: crea embeddings con Gemini.
+  - `embedding.ts`: crea embeddings con Gemini, cacheados con LRU y soporte batch para ingesta.
   - `retrieval.ts`: ejecuta la busqueda vectorial en Supabase.
   - `ingestion.ts`: orquesta scraping, splitting, embeddings e insercion.
   - `vector-db.ts`: crea el cliente de Supabase del backend.
@@ -147,6 +156,8 @@ Puertos por defecto:
   - `components/`: UI, auth, chat, admin y providers.
   - `lib/backend.ts`: cliente fetch para la API del backend.
   - `lib/supabase-browser.ts`: cliente Supabase del browser.
+  - `lib/chat-storage.ts` y `lib/auth-session.ts`: persistencia local del chat y refresco de sesion.
+  - `tests/`: tests de helpers para persistencia de chat y refresco de sesion.
 
 - `middleware/`
   Middleware de autenticacion, autorizacion admin y rate limiting.
@@ -155,7 +166,7 @@ Puertos por defecto:
   Router de Express para el area administrativa.
 
 - `tests/`
-  Suite de pruebas del backend con foco en auth, admin y contratos JSON.
+  Suite de pruebas del backend con foco en auth, admin, contratos JSON y healthcheck.
 
 - `scripts/`
   Utilidades de soporte para admin, auth y pruebas manuales del flujo RAG.
@@ -196,7 +207,7 @@ Puertos por defecto:
 - Respuesta `200 OK`:
 
 ```json
-{ "status": "ok" }
+{ "status": "ok", "dependencies": { "supabase": "ok" } }
 ```
 
 ### POST /chat
