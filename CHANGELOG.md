@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.7.0...v1.8.0) (2026-04-10)
+
+
+### Features
+
+* add opencode automation workflows ([d047e64](https://github.com/santiago25pvp-prog/mi-proyecto/commit/d047e649051d9f548f54a7bad99574b9509cb67f))
+
+
+### Bug Fixes
+
+* align admin ingest response handling ([17b8e00](https://github.com/santiago25pvp-prog/mi-proyecto/commit/17b8e00d46239b9bbf5e144a0f31fb488982a36c))
+
 ## [1.7.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.6.0...v1.7.0) (2026-04-09)
 
 
