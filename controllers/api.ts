@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { ingestUrl } from '../services/ingestion';
-import { ragQuery } from './rag';
+import { executeRagQuery } from '../services/rag';
 
 export const ingestHandler = async (req: Request, res: Response) => {
     try {
@@ -18,7 +18,7 @@ export const queryHandler = async (req: Request, res: Response) => {
     try {
         const { query } = req.body;
         if (!query) return res.status(400).json({ error: 'Query is required' });
-        const result = await ragQuery(query);
+        const result = await executeRagQuery(query);
         res.json(result);
     } catch (e) {
         console.error(e);

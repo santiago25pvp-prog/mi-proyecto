@@ -12,6 +12,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
 const { authMiddleware } = require('../middleware/authMiddleware') as typeof import('../middleware/authMiddleware');
 const { authLimiter } = require('../middleware/rateLimiter') as typeof import('../middleware/rateLimiter');
 const ragModule = require('../controllers/rag') as typeof import('../controllers/rag');
+const ragService = require('../services/rag') as typeof import('../services/rag');
 const apiModule = require('../controllers/api') as typeof import('../controllers/api');
 const { supabase } = require('../services/vector-db') as typeof import('../services/vector-db');
 const retrievalService = require('../services/retrieval') as typeof import('../services/retrieval');
@@ -77,14 +78,14 @@ function mockGetUser(
   };
 }
 
-function mockRagQuery(
-  implementation: typeof ragModule.ragQuery,
+function mockExecuteRagQuery(
+  implementation: typeof ragService.executeRagQuery,
 ): RestoreFn {
-  const original = ragModule.ragQuery;
-  (ragModule as any).ragQuery = implementation;
+  const original = ragService.executeRagQuery;
+  (ragService as any).executeRagQuery = implementation;
 
   return () => {
-    (ragModule as any).ragQuery = original;
+    (ragService as any).executeRagQuery = original;
   };
 }
 
@@ -215,7 +216,7 @@ const protectedRoutes = [
     path: '/query',
     body: { query: 'hola' },
     mockSuccess: () => [
-      mockRagQuery(async () => ({
+      mockExecuteRagQuery(async () => ({
         answer: 'respuesta',
         sources: [],
       })),
@@ -508,7 +509,7 @@ test('/query route responses', async (t) => {
         data: { user: validUser('query-success') },
         error: null,
       })),
-      mockRagQuery(async () => ({
+      mockExecuteRagQuery(async () => ({
         answer: 'Respuesta consolidada',
         sources: [
           { name: 'Manual', content: 'Contenido' },
@@ -540,7 +541,7 @@ test('/query route responses', async (t) => {
         data: { user: validUser('query-fallback') },
         error: null,
       })),
-      mockRagQuery(async () => ({
+      mockExecuteRagQuery(async () => ({
         answer: 'No encontré documentos relevantes para responder tu pregunta.',
         sources: [],
       })),
@@ -568,7 +569,7 @@ test('/query route responses', async (t) => {
         data: { user: validUser('query-error') },
         error: null,
       })),
-      mockRagQuery(async () => {
+      mockExecuteRagQuery(async () => {
         throw new Error('ragQuery failed');
       }),
     ];
