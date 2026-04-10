@@ -147,6 +147,17 @@ function mockSupabaseInsert(
   };
 }
 
+function mockGetEmbeddings(
+  implementation: typeof embeddingService.getEmbeddings,
+): RestoreFn {
+  const original = embeddingService.getEmbeddings;
+  (embeddingService as any).getEmbeddings = implementation;
+
+  return () => {
+    (embeddingService as any).getEmbeddings = original;
+  };
+}
+
 function mockSupabaseFrom(
   implementation: (table: string) => any,
 ): RestoreFn {
@@ -723,7 +734,7 @@ test('/ingest route responses', async (t) => {
       })),
       mockDocumentLoader(async () => 'raw document text'),
       mockTextSplitter(() => ['chunk-1', 'chunk-2']),
-      mockGetEmbedding(async (chunk: string) => [chunk.length, 1]),
+      mockGetEmbeddings(async (texts: string[]) => texts.map((chunk) => [chunk.length, 1])),
       mockSupabaseInsert(async (table, values) => {
         insertedPayloads.push({ table, values });
         return { data: { id: insertedPayloads.length }, error: null };
@@ -774,7 +785,7 @@ test('/ingest route responses', async (t) => {
       })),
       mockDocumentLoader(async () => 'raw document text'),
       mockTextSplitter(() => ['chunk-1', 'chunk-2']),
-      mockGetEmbedding(async () => [1, 2, 3]),
+      mockGetEmbeddings(async () => [[1, 2, 3], [1, 2, 3]]),
       mockSupabaseInsert(async () => {
         insertCount += 1;
 
@@ -868,7 +879,7 @@ test('/ingest route responses', async (t) => {
       })),
       mockDocumentLoader(async () => 'raw document text'),
       mockTextSplitter(() => ['chunk-1']),
-      mockGetEmbedding(async () => {
+      mockGetEmbeddings(async () => {
         throw new Error('embedding failed');
       }),
     ];

@@ -1,7 +1,8 @@
 import { documentLoader } from './scraper';
 import { textSplitter } from './splitter';
-import { getEmbedding } from './embedding';
+import { getEmbeddings } from './embedding';
 import { VectorStore } from './vector-store.interface';
+import { TaskType } from '@google/generative-ai';
 
 export const ingestUrl = async (vectorStore: VectorStore, url: string) => {
     const text = await documentLoader(url);
@@ -9,19 +10,34 @@ export const ingestUrl = async (vectorStore: VectorStore, url: string) => {
     let chunksInserted = 0;
     let chunksFailed = 0;
 
-    for (const chunk of chunks) {
-        const embedding = await getEmbedding(chunk);
-        
-        const { error } = await vectorStore.insertDocument({
-            content: chunk,
-            embedding,
-            metadata: { url: url }
-        });
-        
-        if (error) {
-            chunksFailed += 1;
-        } else {
-            chunksInserted += 1;
+    if (chunks.length === 0) {
+        return {
+            status: 'success',
+            chunks_inserted: 0,
+            chunks_failed: 0,
+        };
+    }
+
+    const embeddings = await getEmbeddings(chunks, TaskType.RETRIEVAL_DOCUMENT);
+    const batchSize = 10;
+
+    for (let start = 0; start < chunks.length; start += batchSize) {
+        const insertionResults = await Promise.allSettled(
+            chunks.slice(start, start + batchSize).map((chunk, offset) =>
+                vectorStore.insertDocument({
+                    content: chunk,
+                    embedding: embeddings[start + offset],
+                    metadata: { url: url }
+                })
+            )
+        );
+
+        for (const result of insertionResults) {
+            if (result.status === 'fulfilled' && !result.value.error) {
+                chunksInserted += 1;
+            } else {
+                chunksFailed += 1;
+            }
         }
     }
 

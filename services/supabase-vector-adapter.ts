@@ -1,10 +1,11 @@
 import { supabase } from './vector-db';
 import { VectorStore, SearchResult, InsertResult, Document } from './vector-store.interface';
 import { getEmbedding } from './embedding';
+import { TaskType } from '@google/generative-ai';
 
 export class SupabaseVectorAdapter implements VectorStore {
   async searchDocuments(query: string, limit: number): Promise<SearchResult[]> {
-    const embedding = await getEmbedding(query);
+    const embedding = await getEmbedding(query, TaskType.RETRIEVAL_QUERY);
     
     const { data, error } = await supabase.rpc('match_documents', {
         query_embedding: embedding,
