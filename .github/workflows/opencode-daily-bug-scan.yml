@@ -28,7 +28,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          opencode --verbose run \
+          opencode run --log-level DEBUG \
             --model google/gemini-3.1-flash-lite-preview \
             "Scan recent commits (since the last 24h) for likely bugs and propose minimal fixes.
 
