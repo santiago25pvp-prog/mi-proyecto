@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.10.1](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.0...v1.10.1) (2026-04-11)
+
+
+### Bug Fixes
+
+* extract Gemini retryDelay from 429 error and use actual delay instead of fixed backoff ([a82cbb5](https://github.com/santiago25pvp-prog/mi-proyecto/commit/a82cbb5e6bade3e5d57857023df7d0c827c9f161))
+* parse decimal retry delay from Gemini error message ([eea3b5b](https://github.com/santiago25pvp-prog/mi-proyecto/commit/eea3b5bc7b9810df76ab9b006be9515ecc6279f3))
+* retry embeddings on gemini 429 ([45cb9d6](https://github.com/santiago25pvp-prog/mi-proyecto/commit/45cb9d61b74b0c81f57f732eb070284f4c36355b))
+* retry embeddings on gemini 429 with dynamic backoff ([9588038](https://github.com/santiago25pvp-prog/mi-proyecto/commit/95880388bf697d105e8243a06b70eab301e1a960))
+* rollback failed chat prompt retries ([879502e](https://github.com/santiago25pvp-prog/mi-proyecto/commit/879502e33ecc4276b0e67cdac41715f2886b591e))
+
 ## [1.10.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.9.0...v1.10.0) (2026-04-11)
 
 
