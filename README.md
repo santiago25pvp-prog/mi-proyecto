@@ -36,7 +36,7 @@
 ### Operacion y robustez
 
 - `server.ts` valida variables de entorno en el arranque y expone un healthcheck con verificacion de dependencia.
-- El backend usa logging estructurado con Winston y request IDs en los handlers principales.
+- El backend usa logging estructurado con Winston, y actualmente agrega request IDs en los handlers de API de `ingest` y `query`.
 - El scraper tiene timeout, limites de redireccion y limites de tamaño para evitar DoS triviales.
 - El chat del frontend persiste transcript y seleccion activa por usuario en `localStorage`.
 - La autenticacion de frontend refresca la sesion cuando el token esta por expirar.
