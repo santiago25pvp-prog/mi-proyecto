@@ -70,10 +70,10 @@ function extractRetryDelayMs(error: unknown): number | null {
         errorMessage = (error as { message?: string }).message || '';
     }
 
-    // Parse "Please retry in Xs" or similar patterns
-    const match = errorMessage.match(/retry\s+in\s+(\d+)\s*s/i);
+    // Parse "Please retry in Xs" or similar patterns (including decimals like 29.253932779s)
+    const match = errorMessage.match(/retry\s+in\s+(\d+(?:\.\d+)?)\s*s/i);
     if (match && match[1]) {
-        const seconds = parseInt(match[1], 10);
+        const seconds = parseFloat(match[1]);
         return seconds * 1000; // Convert to milliseconds
     }
 
