@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
+import { GoogleGenerativeAI, GoogleGenerativeAIFetchError, TaskType } from '@google/generative-ai';
 import { LRUCache } from 'lru-cache';
 import dotenv from 'dotenv';
 
@@ -8,6 +8,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 export const GEMINI_EMBEDDING_MODEL = 'gemini-embedding-001';
 export const GEMINI_EMBEDDING_DIMENSIONS = 3072;
 const DEFAULT_BATCH_SIZE = 10;
+const MAX_RETRY_ATTEMPTS = 3;
+const INITIAL_RETRY_DELAY_MS = 6000;
 
 // LRU Cache for embeddings with bounded memory
 // max: 10k embeddings, maxSize: 100MB, ttl: 1 hour
@@ -48,6 +50,66 @@ function validateEmbedding(embedding: number[]) {
     }
 }
 
+function isRateLimitError(error: unknown): boolean {
+    if (error instanceof GoogleGenerativeAIFetchError) {
+        return error.status === 429;
+    }
+
+    return typeof error === 'object'
+        && error !== null
+        && 'status' in error
+        && (error as { status?: number }).status === 429;
+}
+
+function extractRetryDelayMs(error: unknown): number | null {
+    let errorMessage = '';
+
+    if (error instanceof GoogleGenerativeAIFetchError) {
+        errorMessage = error.message;
+    } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = (error as { message?: string }).message || '';
+    }
+
+    // Parse "Please retry in Xs" or similar patterns (including decimals like 29.253932779s)
+    const match = errorMessage.match(/retry\s+in\s+(\d+(?:\.\d+)?)\s*s/i);
+    if (match && match[1]) {
+        const seconds = parseFloat(match[1]);
+        return seconds * 1000; // Convert to milliseconds
+    }
+
+    return null;
+}
+
+function wait(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRateLimitRetry<T>(operation: () => Promise<T>): Promise<T> {
+    let attempt = 1;
+
+    while (true) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (!isRateLimitError(error) || attempt >= MAX_RETRY_ATTEMPTS) {
+                throw error;
+            }
+
+            // Extract retry delay from Gemini's error response, fallback to exponential backoff
+            const geminiRetryDelayMs = extractRetryDelayMs(error);
+            const delayMs = geminiRetryDelayMs ?? INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+
+            console.warn(
+                `[Embedding] Rate limit (429) on attempt ${attempt}/${MAX_RETRY_ATTEMPTS}. ` +
+                `Retrying in ${delayMs}ms${geminiRetryDelayMs ? ' (from Gemini response)' : ' (exponential backoff)'}`
+            );
+
+            await wait(delayMs);
+            attempt += 1;
+        }
+    }
+}
+
 export const getEmbeddings = async (
     texts: string[],
     taskType: TaskType = TaskType.RETRIEVAL_DOCUMENT,
@@ -73,12 +135,14 @@ export const getEmbeddings = async (
             continue;
         }
 
-        const response = await model.batchEmbedContents({
-            requests: batchEntries.map(({ text }) => ({
-                content: toContent(text),
-                taskType,
-            })),
-        });
+        const response = await withRateLimitRetry(() =>
+            model.batchEmbedContents({
+                requests: batchEntries.map(({ text }) => ({
+                    content: toContent(text),
+                    taskType,
+                })),
+            })
+        );
 
         response.embeddings.forEach((embedding, responseIndex) => {
             const requestIndex = batchEntries[responseIndex].index;
@@ -108,10 +172,12 @@ export const getEmbedding = async (
     }
 
     const model = genAI.getGenerativeModel({ model: GEMINI_EMBEDDING_MODEL });
-    const result = await model.embedContent({
-        content: toContent(text),
-        taskType,
-    });
+    const result = await withRateLimitRetry(() =>
+        model.embedContent({
+            content: toContent(text),
+            taskType,
+        })
+    );
     const embedding = result.embedding.values;
 
     validateEmbedding(embedding);
