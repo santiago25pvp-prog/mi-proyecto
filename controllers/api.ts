@@ -45,7 +45,7 @@ export const queryHandler = async (req: Request, res: Response) => {
   const { body } = getValidatedRequest(res);
   const query = body.query as string;
 
-  logger.info(`[${requestId}] Query request started`, { query: query.substring(0, 50) });
+  logger.info(`[${requestId}] Query request started`, { queryLength: query.length });
 
   const result = await executeRagQuery(vectorStore, query);
   logger.info(`[${requestId}] Query completed successfully`, { sourcesCount: result.sources.length });
