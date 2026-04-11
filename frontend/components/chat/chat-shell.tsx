@@ -15,6 +15,7 @@ import {
   loadPersistedChatStateWithKey,
   savePersistedChatStateWithKey,
 } from "@/lib/chat-storage";
+import { removeMessageById } from "@/lib/chat-messages";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -114,6 +115,7 @@ export function ChatShell() {
           ? submitError.message
           : "No se pudo completar la consulta.";
 
+      setMessages((current) => removeMessageById(current, userMessage.id));
       setInput(prompt);
       setError(message);
       toast.error(message);
