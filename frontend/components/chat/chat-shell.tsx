@@ -36,7 +36,7 @@ export function ChatShell() {
   const storageKey = getChatStorageKey(user?.id);
 
   useEffect(() => {
-    const storedState = loadPersistedChatStateWithKey(window.localStorage, storageKey);
+    const storedState = loadPersistedChatStateWithKey(window.sessionStorage, storageKey);
 
     if (storedState) {
       setMessages(storedState.messages);
@@ -51,7 +51,7 @@ export function ChatShell() {
       return;
     }
 
-    savePersistedChatStateWithKey(window.localStorage, {
+    savePersistedChatStateWithKey(window.sessionStorage, {
       messages,
       activeMessageId,
     }, storageKey);
