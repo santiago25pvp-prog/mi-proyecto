@@ -8,6 +8,7 @@ Nuevo frontend en Next.js para el backend Express del proyecto.
 npm install
 npm run dev
 npm test
+npm run test:e2e
 ```
 
 ## Estado funcional
@@ -15,6 +16,7 @@ npm test
 - La sesion de Supabase se refresca cuando el token esta por expirar.
 - El chat persiste transcript y seleccion activa por usuario en `localStorage`.
 - Los helpers de frontend tienen tests con `node:test`.
+- Hay smoke E2E con Playwright para auth keyboard focus y redirects de guards.
 
 ## Variables de entorno
 

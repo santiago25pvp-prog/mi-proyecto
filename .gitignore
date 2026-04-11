@@ -5,3 +5,5 @@ logs/
 .env
 .local/
 AGENTS.md
+frontend/test-results/
+frontend/playwright-report/
