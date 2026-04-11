@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { SignUpResult } from "@/lib/types";
+import { isSessionExpiringSoon, resolveFreshSession } from "@/lib/auth-session";
 
 interface AuthContextValue {
   user: User | null;
@@ -43,16 +44,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     async function hydrateSession() {
-      const {
-        data: { session: nextSession },
-      } = await client.auth.getSession();
+      const resolvedSession = await resolveFreshSession(client);
 
       if (!mounted) {
         return;
       }
 
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      setSession(resolvedSession);
+      setUser(resolvedSession?.user ?? null);
       setLoading(false);
     }
 
@@ -115,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function getAccessToken() {
-    if (session?.access_token) {
+    if (session?.access_token && !isSessionExpiringSoon(session)) {
       return session.access_token;
     }
 
@@ -123,7 +122,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { session: nextSession },
     } = await requireSupabase().auth.getSession();
 
-    return nextSession?.access_token ?? null;
+    if (nextSession?.access_token && !isSessionExpiringSoon(nextSession)) {
+      setSession(nextSession);
+      setUser(nextSession.user ?? null);
+      return nextSession.access_token;
+    }
+
+    const refreshedSession = await resolveFreshSession(requireSupabase());
+
+    setSession(refreshedSession);
+    setUser(refreshedSession?.user ?? null);
+
+    return refreshedSession?.access_token ?? null;
   }
 
   return (

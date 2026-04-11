@@ -9,6 +9,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading } = useAuth();
+  const isRedirecting = !loading && !user;
 
   useEffect(() => {
     if (loading || user) {
@@ -19,8 +20,17 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     router.replace(`/login${next}`);
   }, [loading, pathname, router, user]);
 
-  if (loading || !user) {
+  if (loading) {
     return <WorkspaceLoader label="Verificando acceso..." />;
+  }
+
+  if (isRedirecting) {
+    return (
+      <WorkspaceLoader
+        label="Redirigiendo al inicio de sesión..."
+        hint="No hay una sesión activa para esta vista protegida."
+      />
+    );
   }
 
   return <>{children}</>;

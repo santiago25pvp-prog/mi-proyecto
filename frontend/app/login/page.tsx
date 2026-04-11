@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <AuthScaffold
       title="Entrar al workspace"
-      description="Autenticacion con Supabase y acceso directo al backend Express."
+      description="Autenticación con Supabase y acceso directo al backend Express."
       eyebrow="Acceso"
     >
       <LoginForm nextPath={nextValue} />

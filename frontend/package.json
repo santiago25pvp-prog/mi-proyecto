@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --test --require ./tests/register.cjs tests/chat-storage.test.ts tests/auth-session.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
@@ -29,6 +30,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "tailwindcss": "^4.2.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   }
 }

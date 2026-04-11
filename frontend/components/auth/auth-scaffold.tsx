@@ -23,7 +23,7 @@ export function AuthScaffold({
   children,
 }: AuthScaffoldProps) {
   return (
-    <div className="min-h-screen px-4 py-6 lg:px-8">
+    <main className="min-h-screen px-4 py-6 lg:px-8">
       <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-7xl overflow-hidden rounded-[2rem] border border-white/8 bg-[rgba(8,14,15,0.72)] lg:grid-cols-[1.15fr_0.85fr]">
         <section className="surface-highlight relative flex flex-col justify-between px-6 py-8 lg:px-10 lg:py-10">
           <div>
@@ -33,8 +33,8 @@ export function AuthScaffold({
             </h1>
             <p className="text-muted mt-6 max-w-lg text-base leading-7">
               El frontend nuevo conversa con el backend Express existente,
-              reutiliza Supabase para autenticacion y deja el foco en la
-              operacion diaria.
+              reutiliza Supabase para autenticación y deja el foco en la
+              operación diaria.
             </p>
           </div>
 
@@ -48,16 +48,19 @@ export function AuthScaffold({
             <div className="surface-soft rounded-[1.75rem] p-5">
               <p className="section-kicker">02 / Admin</p>
               <p className="mt-3 text-lg font-medium text-white">
-                Ingesta, estadisticas y limpieza de documentos.
+                Ingesta, estadísticas y limpieza de documentos.
               </p>
             </div>
           </div>
         </section>
 
-        <section className="flex items-center justify-center px-4 py-8 lg:px-8">
+        <section
+          className="flex items-center justify-center px-4 py-8 lg:px-8"
+          aria-labelledby="auth-card-title"
+        >
           <Card className="w-full max-w-lg">
             <CardHeader>
-              <CardTitle>{title}</CardTitle>
+              <CardTitle id="auth-card-title">{title}</CardTitle>
               <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -76,6 +79,6 @@ export function AuthScaffold({
           </Card>
         </section>
       </div>
-    </div>
+    </main>
   );
 }

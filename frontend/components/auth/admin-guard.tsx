@@ -9,6 +9,8 @@ import { WorkspaceLoader } from "@/components/workspace-loader";
 export function AdminGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user, loading, isAdmin } = useAuth();
+  const isRedirectingToLogin = !loading && !user;
+  const isRedirectingToChat = !loading && !!user && !isAdmin;
 
   useEffect(() => {
     if (loading) {
@@ -21,13 +23,31 @@ export function AdminGuard({ children }: { children: ReactNode }) {
     }
 
     if (!isAdmin) {
-      toast.error("Esta vista requiere rol de administrador");
+      toast.error("Esta vista requiere rol de administrador.");
       router.replace("/chat");
     }
   }, [isAdmin, loading, router, user]);
 
-  if (loading || !user || !isAdmin) {
+  if (loading) {
     return <WorkspaceLoader label="Validando permisos..." />;
+  }
+
+  if (isRedirectingToLogin) {
+    return (
+      <WorkspaceLoader
+        label="Redirigiendo al inicio de sesión..."
+        hint="Necesitas iniciar sesión para acceder al panel de administración."
+      />
+    );
+  }
+
+  if (isRedirectingToChat) {
+    return (
+      <WorkspaceLoader
+        label="Redirigiendo al chat..."
+        hint="Esta vista requiere rol de administrador."
+      />
+    );
   }
 
   return <>{children}</>;

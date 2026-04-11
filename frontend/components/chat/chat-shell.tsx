@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot, CornerDownLeft, FileText, Sparkles } from "lucide-react";
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -10,12 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { sendChatMessage } from "@/lib/backend";
+import {
+  getChatStorageKey,
+  loadPersistedChatStateWithKey,
+  savePersistedChatStateWithKey,
+} from "@/lib/chat-storage";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const starterPrompts = [
   "Resume los documentos cargados con foco en riesgos y decisiones.",
-  "Encuentra la informacion mas relevante para explicar este tema a un cliente.",
+  "Encuentra la información más relevante para explicar este tema a un cliente.",
   "Extrae los puntos clave y cita las fuentes disponibles.",
 ];
 
@@ -26,6 +31,44 @@ export function ChatShell() {
   const [pending, setPending] = useState(false);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const storageKey = getChatStorageKey(user?.id);
+
+  useEffect(() => {
+    const storedState = loadPersistedChatStateWithKey(window.localStorage, storageKey);
+
+    if (storedState) {
+      setMessages(storedState.messages);
+      setActiveMessageId(storedState.activeMessageId);
+    }
+
+    setHydrated(true);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    savePersistedChatStateWithKey(window.localStorage, {
+      messages,
+      activeMessageId,
+    }, storageKey);
+  }, [activeMessageId, hydrated, messages, storageKey]);
+
+  useEffect(() => {
+    if (activeMessageId) {
+      return;
+    }
+
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+
+    if (lastAssistantMessage) {
+      setActiveMessageId(lastAssistantMessage.id);
+    }
+  }, [activeMessageId, messages]);
 
   const activeSources =
     messages.find((message) => message.id === activeMessageId)?.sources || [];
@@ -52,7 +95,7 @@ export function ChatShell() {
       const token = await getAccessToken();
 
       if (!token) {
-        throw new Error("Tu sesion expiro. Vuelve a iniciar sesion.");
+        throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
       }
 
       const response = await sendChatMessage(token, prompt);
@@ -71,6 +114,7 @@ export function ChatShell() {
           ? submitError.message
           : "No se pudo completar la consulta.";
 
+      setInput(prompt);
       setError(message);
       toast.error(message);
     } finally {
@@ -90,6 +134,14 @@ export function ChatShell() {
     }
   }
 
+  const statusMessage = !hydrated
+    ? "Restaurando conversación..."
+    : pending
+      ? "Consultando contexto y preparando respuesta..."
+      : error
+        ? `Error: ${error}`
+        : "Listo para enviar una nueva pregunta.";
+
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.75fr)_360px]">
       <section className="space-y-4">
@@ -107,13 +159,17 @@ export function ChatShell() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="success">Sesion activa</Badge>
+              <Badge variant="success">Sesión activa</Badge>
               <Badge variant="accent">{user?.email || "usuario"}</Badge>
             </div>
           </div>
         </div>
 
         <div className="surface-panel flex min-h-[540px] flex-col rounded-[2rem] p-4 lg:p-5">
+          <p className="sr-only" aria-live="polite" role="status">
+            {statusMessage}
+          </p>
+
           <div className="flex items-center justify-between gap-4 px-2 pb-4">
             <div>
               <p className="text-sm font-medium text-white">Transcript</p>
@@ -127,7 +183,15 @@ export function ChatShell() {
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto px-2 pb-4">
-            {messages.length === 0 ? (
+            {!hydrated ? (
+              <div
+                className="flex h-full items-center justify-center rounded-[1.75rem] border border-white/8 bg-white/[0.02] px-5 py-6 text-sm text-white/60"
+                role="status"
+                aria-live="polite"
+              >
+                Restaurando conversación...
+              </div>
+            ) : messages.length === 0 ? (
               <div className="flex h-full flex-col justify-between gap-6 rounded-[1.75rem] border border-dashed border-white/10 bg-white/[0.02] px-5 py-6">
                 <div>
                   <div className="inline-flex rounded-full bg-[rgba(240,179,106,0.12)] p-3 text-[var(--accent)]">
@@ -164,6 +228,14 @@ export function ChatShell() {
                 return (
                   <button
                     key={message.id}
+                    aria-pressed={selectable ? selected : undefined}
+                    aria-label={
+                      selectable
+                        ? selected
+                          ? "Respuesta del asistente seleccionada"
+                          : "Seleccionar respuesta del asistente"
+                        : undefined
+                    }
                     className={cn(
                       "animate-rise block w-full rounded-[1.75rem] border px-4 py-4 text-left transition-colors",
                       message.role === "user"
@@ -195,7 +267,11 @@ export function ChatShell() {
             )}
 
             {pending ? (
-              <div className="animate-fade max-w-[88%] rounded-[1.75rem] border border-white/8 bg-white/[0.03] px-4 py-4 text-white/70">
+              <div
+                className="animate-fade max-w-[88%] rounded-[1.75rem] border border-white/8 bg-white/[0.03] px-4 py-4 text-white/70"
+                role="status"
+                aria-live="polite"
+              >
                 <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/45">
                   <Bot className="h-3.5 w-3.5" />
                   Asistente
@@ -219,7 +295,7 @@ export function ChatShell() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <p className="text-muted flex items-center gap-2 text-xs">
                 <CornerDownLeft className="h-3.5 w-3.5" />
-                Usa Enter para enviar y Shift + Enter para una nueva linea.
+                Usa Enter para enviar y Shift + Enter para una nueva línea.
               </p>
               <Button disabled={pending || !input.trim()} type="submit">
                 {pending ? "Consultando..." : "Enviar pregunta"}
@@ -227,7 +303,23 @@ export function ChatShell() {
             </div>
           </form>
 
-          {error ? <p className="mt-4 text-sm text-[var(--danger)]">{error}</p> : null}
+          {error ? (
+            <p className="mt-4 text-sm text-[var(--danger)]" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          {error ? (
+            <Button
+              className="mt-3"
+              disabled={pending || !input.trim()}
+              onClick={() => void submitPrompt()}
+              type="button"
+              variant="secondary"
+            >
+              Reintentar con el mismo borrador
+            </Button>
+          ) : null}
         </div>
       </section>
 
@@ -251,7 +343,7 @@ export function ChatShell() {
           {activeSources.length === 0 ? (
             <div className="surface-soft rounded-[1.75rem] px-4 py-5">
               <p className="text-sm text-white/75">
-                Aun no hay fuentes seleccionadas. Envia una pregunta o toca una
+                Aún no hay fuentes seleccionadas. Envía una pregunta o toca una
                 respuesta del asistente.
               </p>
             </div>

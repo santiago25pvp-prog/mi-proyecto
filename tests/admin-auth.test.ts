@@ -2,25 +2,16 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import test from 'node:test';
-import express from 'express';
-
 process.env.SUPABASE_URL ??= 'https://example.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
 
-const adminRoutes = require('../routes/admin').default as import('express').Router;
+const { createApp: buildApp } = require('../server') as typeof import('../server');
 const { supabase } = require('../services/vector-db') as typeof import('../services/vector-db');
 const adminService = require('../services/adminService') as typeof import('../services/adminService');
 
-function createApp() {
-  const app = express();
-  app.use(express.json());
-  app.use('/admin', adminRoutes);
-  return app;
-}
-
 async function startServer() {
   return await new Promise<{ server: http.Server; baseUrl: string }>((resolve) => {
-    const server = createApp().listen(0, '127.0.0.1', () => {
+    const server = buildApp().listen(0, '127.0.0.1', () => {
       const { port } = server.address() as AddressInfo;
       resolve({
         server,
@@ -172,6 +163,72 @@ test('admin routes enforce authentication and admin authorization', async (t) =>
       });
     } finally {
       restoreListDocuments();
+      restoreGetUser();
+      await stopServer(server);
+    }
+  });
+
+  await t.test('returns 400 when pagination query params are invalid', async () => {
+    const restoreGetUser = mockGetUser(async () => ({
+      data: {
+        user: {
+          id: 'admin-123',
+          app_metadata: { role: 'admin' },
+        },
+      },
+      error: null,
+    }));
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await fetch(`${baseUrl}/admin/documents?page=abc&pageSize=0`, {
+        headers: {
+          Authorization: 'Bearer valid-admin-token',
+        },
+      });
+
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), {
+        error: 'Invalid request',
+        details: [
+          'page must be a positive integer',
+          'pageSize must be a positive integer',
+        ],
+      });
+    } finally {
+      restoreGetUser();
+      await stopServer(server);
+    }
+  });
+
+  await t.test('returns 400 when document id is invalid', async () => {
+    const restoreGetUser = mockGetUser(async () => ({
+      data: {
+        user: {
+          id: 'admin-123',
+          app_metadata: { role: 'admin' },
+        },
+      },
+      error: null,
+    }));
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await fetch(`${baseUrl}/admin/documents/not-a-number`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: 'Bearer valid-admin-token',
+        },
+      });
+
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), {
+        error: 'Invalid request',
+        details: ['id must be a positive integer'],
+      });
+    } finally {
       restoreGetUser();
       await stopServer(server);
     }

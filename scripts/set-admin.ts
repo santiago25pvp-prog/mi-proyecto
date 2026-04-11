@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { supabase } from '../services/vector-db';
 
 async function setAdminRole() {
