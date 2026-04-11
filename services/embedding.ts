@@ -61,13 +61,31 @@ function isRateLimitError(error: unknown): boolean {
         && (error as { status?: number }).status === 429;
 }
 
+function extractRetryDelayMs(error: unknown): number | null {
+    let errorMessage = '';
+
+    if (error instanceof GoogleGenerativeAIFetchError) {
+        errorMessage = error.message;
+    } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = (error as { message?: string }).message || '';
+    }
+
+    // Parse "Please retry in Xs" or similar patterns
+    const match = errorMessage.match(/retry\s+in\s+(\d+)\s*s/i);
+    if (match && match[1]) {
+        const seconds = parseInt(match[1], 10);
+        return seconds * 1000; // Convert to milliseconds
+    }
+
+    return null;
+}
+
 function wait(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function withRateLimitRetry<T>(operation: () => Promise<T>): Promise<T> {
     let attempt = 1;
-    let delayMs = INITIAL_RETRY_DELAY_MS;
 
     while (true) {
         try {
@@ -77,9 +95,17 @@ async function withRateLimitRetry<T>(operation: () => Promise<T>): Promise<T> {
                 throw error;
             }
 
+            // Extract retry delay from Gemini's error response, fallback to exponential backoff
+            const geminiRetryDelayMs = extractRetryDelayMs(error);
+            const delayMs = geminiRetryDelayMs ?? INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+
+            console.warn(
+                `[Embedding] Rate limit (429) on attempt ${attempt}/${MAX_RETRY_ATTEMPTS}. ` +
+                `Retrying in ${delayMs}ms${geminiRetryDelayMs ? ' (from Gemini response)' : ' (exponential backoff)'}`
+            );
+
             await wait(delayMs);
             attempt += 1;
-            delayMs *= 2;
         }
     }
 }
