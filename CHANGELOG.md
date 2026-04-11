@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.2](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.1...v1.10.2) (2026-04-11)
+
+
+### Bug Fixes
+
+* switch chat persistence to sessionStorage ([f2caeb5](https://github.com/santiago25pvp-prog/mi-proyecto/commit/f2caeb580563dfe82ca43fab9fc46ce1d84c1ed5))
+* switch chat persistence to sessionStorage ([75fd405](https://github.com/santiago25pvp-prog/mi-proyecto/commit/75fd40537db971b0137089c7881a1e20981a8676))
+
 ## [1.10.1](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.0...v1.10.1) (2026-04-11)
 
 
