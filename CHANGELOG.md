@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.9.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.8.0...v1.9.0) (2026-04-11)
+
+
+### Features
+
+* add backend validation, healthcheck, and centralized error handling ([b0f3dac](https://github.com/santiago25pvp-prog/mi-proyecto/commit/b0f3dace961ba5853bf0e2fa4a041b39459cc6fb))
+* add environment variable validation at startup ([bd6da83](https://github.com/santiago25pvp-prog/mi-proyecto/commit/bd6da83b658346925796604ba7ec3ea09efb6e38))
+* add structured logging with Winston and request IDs ([c73b9e7](https://github.com/santiago25pvp-prog/mi-proyecto/commit/c73b9e79bca08406b28c1c18b7f37ae2829fefda))
+* batch embeddings and improve RAG ingestion throughput ([e55f862](https://github.com/santiago25pvp-prog/mi-proyecto/commit/e55f862600302539a431d88343705c9bbbf96ff4))
+* close frontend polish and backend hardening batches ([9a64189](https://github.com/santiago25pvp-prog/mi-proyecto/commit/9a641896e2796fbba341548288ea67071fdb0609))
+* improve frontend accessibility semantics and localized messaging ([fd702d4](https://github.com/santiago25pvp-prog/mi-proyecto/commit/fd702d4c1bc02a6a74d1574b77643c89e0fd7fae))
+* persist chat state and refresh expiring auth sessions ([fc625c1](https://github.com/santiago25pvp-prog/mi-proyecto/commit/fc625c1684d05f5ce8f603ad01f403052694ff18))
+* refactor and clean up project structure ([132344a](https://github.com/santiago25pvp-prog/mi-proyecto/commit/132344a9d2590875af41f16119df9dac05017eab))
+* refactor architecture and decouple database ([247bbf3](https://github.com/santiago25pvp-prog/mi-proyecto/commit/247bbf38b6e7cceb5fb9efafc38723156b3e1e41))
+* strengthen guard and workspace accessibility states ([5caff64](https://github.com/santiago25pvp-prog/mi-proyecto/commit/5caff64ea36cded81ade281addfe5f008f6a1566))
+
+
+### Bug Fixes
+
+* add github_token to opencode workflows ([2d561e8](https://github.com/santiago25pvp-prog/mi-proyecto/commit/2d561e8f4763340e52f5f7a2095d297a81e0db6b))
+* add LRU cache with memory limits to prevent embedding cache memory leak ([1109d3a](https://github.com/santiago25pvp-prog/mi-proyecto/commit/1109d3a9d8c0c27b587550dac324aa2814779081))
+* add required env vars to ci backend job ([75e7772](https://github.com/santiago25pvp-prog/mi-proyecto/commit/75e7772c2fad681573d3f4c7ebea80263d2f7b49))
+* add ts-node to frontend devDependencies for ci ([ce5c471](https://github.com/santiago25pvp-prog/mi-proyecto/commit/ce5c471ea678634e036212287c47006744c4fa19))
+* add URL scraper safeguards (timeout, redirects, size) and improve error handling ([3fe7c06](https://github.com/santiago25pvp-prog/mi-proyecto/commit/3fe7c06ce04b599d5b4bdc364e2ce7d59e978d03))
+* resolve merge conflict in queryHandler ([34ea088](https://github.com/santiago25pvp-prog/mi-proyecto/commit/34ea0885bca249667e8388490e20f3918efd6347))
+* resolve merge conflicts after sync ([e969258](https://github.com/santiago25pvp-prog/mi-proyecto/commit/e9692588125b064af74774061608231dbe8d6991))
+* switch to opencode run for automation workflows ([8be48ab](https://github.com/santiago25pvp-prog/mi-proyecto/commit/8be48ab8a27727d569527aa0ff8e2734b987a106))
+* use valid --log-level DEBUG flag for opencode workflows ([da1d83d](https://github.com/santiago25pvp-prog/mi-proyecto/commit/da1d83d617cad41788fc3c7417862d90f950164a))
+
 ## [1.9.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.8.0...v1.9.0) (2026-04-10)
 
 
