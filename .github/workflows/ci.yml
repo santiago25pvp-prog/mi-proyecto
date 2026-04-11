@@ -1,16 +1,17 @@
 name: ci
-
 on:
   pull_request:
     branches:
       - main
       - develop
-
 jobs:
   backend-test-build:
     name: Backend Test & Build
     runs-on: ubuntu-latest
-
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: fake-key-for-tests
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,39 +21,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-
       - name: Install backend dependencies
         run: npm ci
-
       - name: Run backend tests
         run: npm test
-
       - name: Build backend
         run: npm run build
-
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-
       - name: Run frontend tests
         working-directory: frontend
         run: npm test
-
       - name: Build frontend
         working-directory: frontend
         run: npm run build
