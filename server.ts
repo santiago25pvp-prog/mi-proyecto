@@ -3,7 +3,6 @@ import express from 'express';
 import logger from './services/logger';
 import { authMiddleware } from './middleware/authMiddleware';
 import { publicLimiter, authLimiter } from './middleware/rateLimiter';
-import { chatHandler } from './controllers/rag';
 import { ingestHandler, queryHandler } from './controllers/api';
 import adminRoutes from './routes/admin';
 import { validateRequest } from './middleware/requestValidation';
@@ -48,44 +47,34 @@ export function createApp() {
     next();
   });
 
-  app.use(express.json());
+   app.use(express.json());
 
-  app.get('/health', publicLimiter, async (_req, res) => {
-    const dependencies = await checkDependencies();
-    res.json({ status: 'ok', dependencies });
-  });
+   app.get('/health', publicLimiter, async (_req, res) => {
+     const dependencies = await checkDependencies();
+     res.json({ status: 'ok', dependencies });
+   });
 
-  app.post(
-    '/chat',
-    authMiddleware,
-    authLimiter,
-    validateRequest([
-      { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
-    ]),
-    chatHandler,
-  );
+   app.post(
+     '/ingest',
+     authMiddleware,
+     authLimiter,
+     validateRequest([
+       { source: 'body', field: 'url', type: 'url', required: true, requiredMessage: 'URL is required', message: 'url must be a valid http or https URL' },
+     ]),
+     ingestHandler,
+   );
 
-  app.post(
-    '/ingest',
-    authMiddleware,
-    authLimiter,
-    validateRequest([
-      { source: 'body', field: 'url', type: 'url', required: true, requiredMessage: 'URL is required', message: 'url must be a valid http or https URL' },
-    ]),
-    ingestHandler,
-  );
+   app.post(
+     '/query',
+     authMiddleware,
+     authLimiter,
+     validateRequest([
+       { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
+     ]),
+     queryHandler,
+   );
 
-  app.post(
-    '/query',
-    authMiddleware,
-    authLimiter,
-    validateRequest([
-      { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
-    ]),
-    queryHandler,
-  );
-
-  app.use('/admin', adminRoutes);
+   app.use('/admin', adminRoutes);
 
   app.use(notFoundHandler);
   app.use(errorMiddleware);
