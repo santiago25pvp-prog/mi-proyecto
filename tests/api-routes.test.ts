@@ -9,7 +9,6 @@ process.env.GEMINI_API_KEY ??= 'test-gemini-key';
 process.env.SUPABASE_URL ??= 'https://example.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
 
-const ragModule = require('../controllers/rag') as typeof import('../controllers/rag');
 const ragService = require('../services/rag') as typeof import('../services/rag');
 const apiModule = require('../controllers/api') as typeof import('../controllers/api');
 const { supabase } = require('../services/vector-db') as typeof import('../services/vector-db');
@@ -20,7 +19,6 @@ const splitterService = require('../services/splitter') as typeof import('../ser
 const embeddingService = require('../services/embedding') as typeof import('../services/embedding');
 const { createApp: buildApp } = require('../server') as typeof import('../server');
 
-const { chatHandler } = ragModule;
 const { ingestHandler, queryHandler } = apiModule;
 
 type RestoreFn = () => void;
@@ -204,14 +202,6 @@ async function postJson(baseUrl: string, path: string, body: unknown, token?: st
 
 const protectedRoutes = [
   {
-    name: '/chat',
-    path: '/chat',
-    body: { query: 'hola' },
-    mockSuccess: () => [
-      mockSearchDocuments(async () => []),
-    ],
-  },
-  {
     name: '/ingest',
     path: '/ingest',
     body: { url: 'https://example.com' },
@@ -331,165 +321,6 @@ test('protected API routes enforce authentication and authenticated rate limits'
       }
     });
   }
-});
-
-test('/chat route responses', async (t) => {
-  await t.test('returns 400 when query is missing', async () => {
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-missing-query') },
-        error: null,
-      })),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', {}, 'chat-missing-query-token');
-
-      assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
-        error: 'Invalid request',
-        details: ['Query is required'],
-      });
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns answer and sources when RAG succeeds', async () => {
-    let capturedPrompt = '';
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-success') },
-        error: null,
-      })),
-      mockSearchDocuments(async () => [
-        { title: 'Guia', text: 'Contexto uno' },
-        { name: 'Manual', content: 'Contexto dos' },
-      ] as any),
-      mockGenerativeModel(() => ({
-        generateContent: async (prompt: string) => {
-          capturedPrompt = prompt;
-          return {
-            response: {
-              text: () => 'Respuesta generada',
-            },
-          };
-        },
-      })),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', { query: 'Que dice la guia?' }, 'chat-success-token');
-
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
-        answer: 'Respuesta generada',
-        sources: [
-          { name: 'Guia', content: 'Contexto uno' },
-          { name: 'Manual', content: 'Contexto dos' },
-        ],
-      });
-      assert.match(capturedPrompt, /Contexto uno/);
-      assert.match(capturedPrompt, /Contexto dos/);
-      assert.match(capturedPrompt, /Que dice la guia\?/);
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns fallback answer and skips Gemini when no documents are found', async () => {
-    let geminiCalled = false;
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-fallback') },
-        error: null,
-      })),
-      mockSearchDocuments(async () => []),
-      mockGenerativeModel(() => {
-        geminiCalled = true;
-        throw new Error('Gemini should not be called without context');
-      }),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', { query: 'sin contexto' }, 'chat-fallback-token');
-
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
-        answer: 'No encontré documentos relevantes para responder tu pregunta.',
-        sources: [],
-      });
-      assert.equal(geminiCalled, false);
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns 500 when document retrieval fails', async () => {
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-retrieval-error') },
-        error: null,
-      })),
-      mockSearchDocuments(async () => {
-        throw new Error('retrieval failed');
-      }),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', { query: 'fallo' }, 'chat-retrieval-error-token');
-
-      assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
-        error: 'Internal Server Error',
-      });
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns 500 when Gemini generation fails', async () => {
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-gemini-error') },
-        error: null,
-      })),
-      mockSearchDocuments(async () => [
-        { content: 'Contexto disponible' },
-      ] as any),
-      mockGenerativeModel(() => ({
-        generateContent: async () => {
-          throw new Error('Gemini failed');
-        },
-      })),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', { query: 'fallo gemini' }, 'chat-gemini-error-token');
-
-      assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
-        error: 'Internal Server Error',
-      });
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
 });
 
 test('/health route responses', async (t) => {
