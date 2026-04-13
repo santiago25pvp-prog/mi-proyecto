@@ -8,6 +8,7 @@ import {
   deleteDocument,
   fetchAdminStats,
   fetchDocuments,
+  getBackendErrorInfo,
   ingestDocument,
 } from "@/lib/backend";
 import type { AdminDocument, AdminStats } from "@/lib/types";
@@ -40,8 +41,11 @@ export function AdminShell() {
   const [ingesting, setIngesting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
   const [ingestError, setIngestError] = useState<string | null>(null);
+  const [ingestErrorRequestId, setIngestErrorRequestId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteErrorRequestId, setDeleteErrorRequestId] = useState<string | null>(null);
 
   async function loadDashboard(showRefreshingState = false) {
     const token = await getAccessToken();
@@ -57,6 +61,7 @@ export function AdminShell() {
     }
 
     setError(null);
+    setErrorRequestId(null);
 
     try {
       const [nextStats, nextDocuments] = await Promise.all([
@@ -68,13 +73,14 @@ export function AdminShell() {
       setDocuments(nextDocuments.data || []);
       setCount(nextDocuments.count || 0);
     } catch (loadError) {
-      const message =
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudo cargar el panel administrativo.";
+      const { message, requestId } = getBackendErrorInfo(
+        loadError,
+        "No se pudo cargar el panel administrativo.",
+      );
 
       setError(message);
-      toast.error(message);
+      setErrorRequestId(requestId);
+      toast.error(requestId ? `${message} (Reference ID: ${requestId})` : message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -94,6 +100,7 @@ export function AdminShell() {
 
     setIngesting(true);
     setIngestError(null);
+    setIngestErrorRequestId(null);
 
     try {
       const token = await getAccessToken();
@@ -112,15 +119,14 @@ export function AdminShell() {
       setIngestUrlValue("");
       await loadDashboard(true);
     } catch (ingestError) {
-      const message =
-        ingestError instanceof Error
-          ? ingestError.message
-          : "No se pudo ingerir la URL.";
+      const { message, requestId } = getBackendErrorInfo(
+        ingestError,
+        "No se pudo ingerir la URL.",
+      );
 
       setIngestError(message);
-      toast.error(
-        message,
-      );
+      setIngestErrorRequestId(requestId);
+      toast.error(requestId ? `${message} (Reference ID: ${requestId})` : message);
     } finally {
       setIngesting(false);
     }
@@ -129,6 +135,7 @@ export function AdminShell() {
   async function handleDelete(id: number) {
     setDeletingId(id);
     setDeleteError(null);
+    setDeleteErrorRequestId(null);
 
     try {
       const token = await getAccessToken();
@@ -141,15 +148,14 @@ export function AdminShell() {
       toast.success("Documento eliminado");
       await loadDashboard(true);
     } catch (deleteError) {
-      const message =
-        deleteError instanceof Error
-          ? deleteError.message
-          : "No se pudo eliminar el documento.";
+      const { message, requestId } = getBackendErrorInfo(
+        deleteError,
+        "No se pudo eliminar el documento.",
+      );
 
       setDeleteError(message);
-      toast.error(
-        message,
-      );
+      setDeleteErrorRequestId(requestId);
+      toast.error(requestId ? `${message} (Reference ID: ${requestId})` : message);
     } finally {
       setDeletingId(null);
     }
@@ -231,9 +237,14 @@ export function AdminShell() {
             </Button>
 
             {ingestError ? (
-              <p className="text-sm text-[var(--danger)]" role="alert">
-                {ingestError}
-              </p>
+              <div className="text-sm text-[var(--danger)]" role="alert">
+                <p>{ingestError}</p>
+                {ingestErrorRequestId ? (
+                  <p className="mt-1 text-xs text-white/65">
+                    Reference ID: {ingestErrorRequestId}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </form>
         </div>
@@ -258,7 +269,10 @@ export function AdminShell() {
             </div>
           ) : error ? (
             <div className="py-8 text-sm text-[var(--danger)]" role="alert">
-              {error}
+              <p>{error}</p>
+              {errorRequestId ? (
+                <p className="mt-1 text-xs text-white/65">Reference ID: {errorRequestId}</p>
+              ) : null}
             </div>
           ) : documents.length === 0 ? (
             <div className="surface-soft rounded-[1.5rem] px-4 py-5 text-sm text-white/75">
@@ -299,9 +313,14 @@ export function AdminShell() {
           )}
 
           {deleteError ? (
-            <p className="mt-4 text-sm text-[var(--danger)]" role="alert">
-              {deleteError}
-            </p>
+            <div className="mt-4 text-sm text-[var(--danger)]" role="alert">
+              <p>{deleteError}</p>
+              {deleteErrorRequestId ? (
+                <p className="mt-1 text-xs text-white/65">
+                  Reference ID: {deleteErrorRequestId}
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </section>

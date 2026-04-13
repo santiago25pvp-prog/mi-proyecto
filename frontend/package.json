@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test --require ./tests/register.cjs tests/chat-storage.test.ts tests/auth-session.test.ts tests/chat-messages.test.ts",
+    "test": "node --test --require ./tests/register.cjs tests/chat-storage.test.ts tests/auth-session.test.ts tests/chat-messages.test.ts tests/backend.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
