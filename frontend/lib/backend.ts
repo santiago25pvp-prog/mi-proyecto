@@ -5,9 +5,9 @@ import type {
   DeleteDocumentResponse,
   IngestResponse,
 } from "@/lib/types";
-import { resolveApiUrl } from "@/lib/env";
+import { readFrontendPublicEnv, resolveApiUrl } from "./env";
 
-const API_URL = resolveApiUrl();
+const API_URL = resolveApiUrl(readFrontendPublicEnv());
 
 type ErrorPayload = {
   error?: unknown;

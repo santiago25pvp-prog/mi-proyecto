@@ -55,3 +55,10 @@ test("resolveSupabaseBrowserEnv throws when anon key is missing", () => {
     /NEXT_PUBLIC_SUPABASE_ANON_KEY is required/,
   );
 });
+
+test("resolveSupabaseBrowserEnv uses deterministic fallback in test mode", () => {
+  assert.deepEqual(resolveSupabaseBrowserEnv({ NODE_ENV: "test" }), {
+    url: "https://example.supabase.co",
+    anonKey: "fake-anon-key-for-tests",
+  });
+});

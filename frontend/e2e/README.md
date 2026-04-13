@@ -21,6 +21,10 @@ npm run test:e2e
 - Instala Chromium con Playwright y ejecuta `npm run test:e2e`.
 - Si falla, sube `frontend/playwright-report/` como artifact para debugging rápido.
 
+Nota:
+
+- En `NODE_ENV=test`, el frontend usa fallback deterministico para env pública de Supabase en smoke tests.
+
 ## Nota
 
 Estos tests no reemplazan completamente QA visual/manual, pero cubren regresiones frecuentes de navegación y guards.

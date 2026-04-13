@@ -33,3 +33,4 @@ Notas:
 - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` son obligatorias.
 - `NEXT_PUBLIC_API_URL` cae a `http://localhost:3001` solo en desarrollo/test.
 - En `production`, `NEXT_PUBLIC_API_URL` es obligatorio.
+- En `NODE_ENV=test` (smoke E2E) se permite fallback deterministico de Supabase para evitar crashes por config faltante.

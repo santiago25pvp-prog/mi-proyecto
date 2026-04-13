@@ -1,13 +1,13 @@
 "use client";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { resolveSupabaseBrowserEnv } from "@/lib/env";
+import { readFrontendPublicEnv, resolveSupabaseBrowserEnv } from "./env";
 
 let browserClient: SupabaseClient | undefined;
 
 export function getSupabaseBrowserClient() {
   if (!browserClient) {
-    const { url, anonKey } = resolveSupabaseBrowserEnv();
+    const { url, anonKey } = resolveSupabaseBrowserEnv(readFrontendPublicEnv());
 
     browserClient = createClient(
       url,
