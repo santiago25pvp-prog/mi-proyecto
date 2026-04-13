@@ -68,6 +68,7 @@ Notas:
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `GEMINI_API_KEY` son necesarias para el backend.
 - `SUPABASE_ANON_KEY` no aparece en `.env.example`, pero si es util para los scripts de autenticacion en `scripts/get-token.ts`.
 - `PORT` es opcional; por defecto el backend escucha en `3001`.
+- En `production`, `ALLOWED_ORIGIN` es obligatorio y el backend falla en el arranque si falta.
 
 Crea el archivo `frontend/.env.local`:
 
@@ -76,6 +77,13 @@ NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
 NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
+
+Notas frontend:
+
+- `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` son obligatorias para inicializar Supabase en el navegador.
+- `NEXT_PUBLIC_API_URL` tiene fallback a `http://localhost:3001` solo fuera de `production`.
+- En `production`, `NEXT_PUBLIC_API_URL` es obligatorio y el frontend falla al resolver la configuracion si falta.
+- En `NODE_ENV=test` (smoke E2E), frontend usa fallback deterministico de Supabase para no romper el arranque por env faltante.
 
 ### 3. Instalar dependencias
 

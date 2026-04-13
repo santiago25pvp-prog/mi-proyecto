@@ -1,14 +1,17 @@
 "use client";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { readFrontendPublicEnv, resolveSupabaseBrowserEnv } from "./env";
 
 let browserClient: SupabaseClient | undefined;
 
 export function getSupabaseBrowserClient() {
   if (!browserClient) {
+    const { url, anonKey } = resolveSupabaseBrowserEnv(readFrontendPublicEnv());
+
     browserClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      url,
+      anonKey,
       {
         auth: {
           persistSession: true,
@@ -20,4 +23,3 @@ export function getSupabaseBrowserClient() {
 
   return browserClient;
 }
-
