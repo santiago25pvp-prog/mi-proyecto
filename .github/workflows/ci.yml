@@ -57,6 +57,9 @@ jobs:
   frontend-e2e-smoke:
     name: Frontend E2E Smoke
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: fake-anon-key-for-tests
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
