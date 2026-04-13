@@ -15,7 +15,7 @@
 
 ### API unificada
 
-- `POST /chat` y `POST /query` reciben `query` y devuelven el mismo formato JSON: `{ "answer": string, "sources": [] }`.
+- `POST /query` recibe `query` y devuelve el formato JSON: `{ "answer": string, "sources": [] }`.
 - `POST /ingest` expone el pipeline de carga de documentos y reporta inserciones exitosas y fallidas.
 - Los endpoints administrativos permiten listar documentos, borrarlos y consultar estadisticas.
 
@@ -29,7 +29,7 @@
 ### Tests
 
 - El backend se valida con `node:test` en `tests/admin-auth.test.ts` y `tests/api-routes.test.ts`.
-- Hay cobertura de autenticacion, autorizacion, rate limiting y respuestas de `/chat`, `/query` y `/ingest`.
+- Hay cobertura de autenticacion, autorizacion, rate limiting y respuestas de `/query` y `/ingest`.
 - El frontend tambien tiene tests de helpers en `frontend/tests/chat-storage.test.ts` y `frontend/tests/auth-session.test.ts`.
 - El workflow de GitHub Actions ejecuta tests y builds en PRs hacia `main` y `develop`.
 
@@ -131,7 +131,6 @@ Puertos por defecto:
 
 - `controllers/`
   Contiene los handlers HTTP del backend.
-  - `rag.ts`: resuelve `/chat` y la funcion `ragQuery`.
   - `api.ts`: expone `/ingest` y `/query`.
   - `admin.ts`: expone operaciones administrativas sobre documentos y estadisticas.
 
@@ -208,48 +207,6 @@ Puertos por defecto:
 
 ```json
 { "status": "ok", "dependencies": { "supabase": "ok" } }
-```
-
-### POST /chat
-
-- Metodo: `POST`
-- Auth: requerida
-- Body JSON:
-
-```json
-{ "query": "Que dice la guia?" }
-```
-
-- Parametros:
-  - `query` (string, obligatorio): pregunta del usuario.
-- Respuesta `200 OK`:
-
-```json
-{
-  "answer": "Respuesta generada",
-  "sources": [
-    {
-      "name": "Guia",
-      "content": "Contexto uno"
-    },
-    {
-      "name": "Manual",
-      "content": "Contexto dos"
-    }
-  ]
-}
-```
-
-- Respuesta `400 Bad Request`:
-
-```json
-{ "error": "Query is required" }
-```
-
-- Respuesta `500 Internal Server Error`:
-
-```json
-{ "error": "Internal Server Error" }
 ```
 
 ### POST /query

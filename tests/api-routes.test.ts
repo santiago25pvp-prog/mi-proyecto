@@ -416,6 +416,22 @@ test('unknown routes return JSON 404s', async () => {
   }
 });
 
+test('/chat endpoint is deprecated and returns 404', async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    const response = await postJson(baseUrl, '/chat', { query: 'hola' });
+    const payload = await response.json();
+
+    assert.equal(response.status, 404);
+    assertResponseWithRequestId(payload, {
+      error: 'Not Found',
+    });
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('cors configuration hardening', async (t) => {
   await t.test('uses localhost fallback when not in production', async () => {
     const env: NodeJS.ProcessEnv = {
