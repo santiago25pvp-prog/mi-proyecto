@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.1](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.11.0...v1.11.1) (2026-04-13)
+
+
+### Bug Fixes
+
+* provide frontend supabase envs for ci e2e smoke ([e5659df](https://github.com/santiago25pvp-prog/mi-proyecto/commit/e5659df051a9af893f8bc6c916073b42258dd9f7))
+
 ## [1.11.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.4...v1.11.0) (2026-04-13)
 
 
