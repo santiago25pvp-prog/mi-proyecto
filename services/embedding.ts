@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI, GoogleGenerativeAIFetchError, TaskType } from '@google/generative-ai';
 import { LRUCache } from 'lru-cache';
 import dotenv from 'dotenv';
+import logger from './logger';
 
 dotenv.config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -100,9 +101,19 @@ async function withTransientRetry<T>(operation: () => Promise<T>): Promise<T> {
             const geminiRetryDelayMs = extractRetryDelayMs(error);
             const delayMs = geminiRetryDelayMs ?? INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
 
-            console.warn(
-                `[Embedding] Transient provider error on attempt ${attempt}/${MAX_RETRY_ATTEMPTS}. ` +
-                `Retrying in ${delayMs}ms${geminiRetryDelayMs ? ' (from Gemini response)' : ' (exponential backoff)'}`
+            logger.warn(
+                '[Embedding] Transient provider error. Retrying request',
+                {
+                    attempt,
+                    maxAttempts: MAX_RETRY_ATTEMPTS,
+                    retryDelayMs: delayMs,
+                    retryDelaySource: geminiRetryDelayMs ? 'gemini_response' : 'exponential_backoff',
+                    status:
+                        error instanceof GoogleGenerativeAIFetchError
+                            ? error.status
+                            : (error as { status?: number }).status,
+                    error: error instanceof Error ? error.message : String(error),
+                }
             );
 
             await wait(delayMs);
