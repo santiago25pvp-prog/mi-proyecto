@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.11.2](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.11.1...v1.11.2) (2026-04-13)
+
+
+### Bug Fixes
+
+* enforce frontend env contract for runtime and ci ([5b9eb93](https://github.com/santiago25pvp-prog/mi-proyecto/commit/5b9eb930c64861698369a275dba24e2e17bb9bd3))
+* harden frontend env contract for runtime, tests, and ci ([45eb5e7](https://github.com/santiago25pvp-prog/mi-proyecto/commit/45eb5e70e05948e317f0090171cc1c56200aeced))
+* stabilize frontend env resolution across runtime and tests ([f0b83e6](https://github.com/santiago25pvp-prog/mi-proyecto/commit/f0b83e630f076655b1309e0d13f9d9981a6b8886))
+
 ## [1.11.1](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.11.0...v1.11.1) (2026-04-13)
 
 
