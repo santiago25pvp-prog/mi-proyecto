@@ -5,11 +5,12 @@ import { executeRagQuery } from '../services/rag';
 import { SupabaseVectorAdapter } from '../services/supabase-vector-adapter';
 import { getValidatedRequest } from '../middleware/requestValidation';
 import { HttpError } from '../middleware/httpError';
+import { getRequestId } from '../middleware/requestId';
 
 const vectorStore = new SupabaseVectorAdapter();
 
 export const ingestHandler = async (req: Request, res: Response) => {
-  const requestId = Math.random().toString(36).slice(2, 11);
+  const requestId = getRequestId(res);
   const { body } = getValidatedRequest(res);
   const url = body.url as string;
 
@@ -18,7 +19,7 @@ export const ingestHandler = async (req: Request, res: Response) => {
   try {
     const result = await ingestUrl(vectorStore, url);
     logger.info(`[${requestId}] Ingest completed successfully`, { result });
-    res.json(result);
+    res.json({ ...result, requestId });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -41,7 +42,7 @@ export const ingestHandler = async (req: Request, res: Response) => {
 };
 
 export const queryHandler = async (req: Request, res: Response) => {
-  const requestId = Math.random().toString(36).slice(2, 11);
+  const requestId = getRequestId(res);
   const { body } = getValidatedRequest(res);
   const query = body.query as string;
 
@@ -49,5 +50,5 @@ export const queryHandler = async (req: Request, res: Response) => {
 
   const result = await executeRagQuery(vectorStore, query);
   logger.info(`[${requestId}] Query completed successfully`, { sourcesCount: result.sources.length });
-  res.json(result);
+  res.json({ ...result, requestId });
 };

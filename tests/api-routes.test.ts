@@ -9,7 +9,6 @@ process.env.GEMINI_API_KEY ??= 'test-gemini-key';
 process.env.SUPABASE_URL ??= 'https://example.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
 
-const ragModule = require('../controllers/rag') as typeof import('../controllers/rag');
 const ragService = require('../services/rag') as typeof import('../services/rag');
 const apiModule = require('../controllers/api') as typeof import('../controllers/api');
 const { supabase } = require('../services/vector-db') as typeof import('../services/vector-db');
@@ -18,17 +17,16 @@ const ingestionService = require('../services/ingestion') as typeof import('../s
 const scraperService = require('../services/scraper') as typeof import('../services/scraper');
 const splitterService = require('../services/splitter') as typeof import('../services/splitter');
 const embeddingService = require('../services/embedding') as typeof import('../services/embedding');
-const { createApp: buildApp } = require('../server') as typeof import('../server');
+const { createApp: buildApp, validateEnvironment } = require('../server') as typeof import('../server');
 
-const { chatHandler } = ragModule;
 const { ingestHandler, queryHandler } = apiModule;
 
 type RestoreFn = () => void;
 type AuthResult = Promise<{ data: { user: any }; error: any }>;
 
-async function startServer() {
+async function startServer(env?: NodeJS.ProcessEnv) {
   return await new Promise<{ server: http.Server; baseUrl: string }>((resolve) => {
-    const server = buildApp().listen(0, '127.0.0.1', () => {
+    const server = buildApp(env).listen(0, '127.0.0.1', () => {
       const { port } = server.address() as AddressInfo;
       resolve({
         server,
@@ -194,6 +192,18 @@ function authHeaders(token: string) {
   };
 }
 
+function assertResponseWithRequestId(payload: any, expected: Record<string, unknown>) {
+  assert.equal(typeof payload.requestId, 'string');
+  assert.match(
+    payload.requestId,
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  );
+  assert.deepEqual(payload, {
+    ...expected,
+    requestId: payload.requestId,
+  });
+}
+
 async function postJson(baseUrl: string, path: string, body: unknown, token?: string) {
   return await fetch(`${baseUrl}${path}`, {
     method: 'POST',
@@ -203,14 +213,6 @@ async function postJson(baseUrl: string, path: string, body: unknown, token?: st
 }
 
 const protectedRoutes = [
-  {
-    name: '/chat',
-    path: '/chat',
-    body: { query: 'hola' },
-    mockSuccess: () => [
-      mockSearchDocuments(async () => []),
-    ],
-  },
   {
     name: '/ingest',
     path: '/ingest',
@@ -243,9 +245,10 @@ test('protected API routes enforce authentication and authenticated rate limits'
 
       try {
         const response = await postJson(baseUrl, route.path, route.body);
+        const payload = await response.json();
 
         assert.equal(response.status, 401);
-        assert.deepEqual(await response.json(), {
+        assertResponseWithRequestId(payload, {
           error: 'Unauthorized: Missing or invalid token',
         });
       } finally {
@@ -265,9 +268,10 @@ test('protected API routes enforce authentication and authenticated rate limits'
 
       try {
         const response = await postJson(baseUrl, route.path, route.body, 'invalid-token');
+        const payload = await response.json();
 
         assert.equal(response.status, 401);
-        assert.deepEqual(await response.json(), {
+        assertResponseWithRequestId(payload, {
           error: 'Unauthorized: Invalid token',
         });
       } finally {
@@ -287,9 +291,10 @@ test('protected API routes enforce authentication and authenticated rate limits'
 
       try {
         const response = await postJson(baseUrl, route.path, route.body, 'broken-token');
+        const payload = await response.json();
 
         assert.equal(response.status, 500);
-        assert.deepEqual(await response.json(), {
+        assertResponseWithRequestId(payload, {
           error: 'Internal Server Error during authentication',
         });
       } finally {
@@ -320,8 +325,11 @@ test('protected API routes enforce authentication and authenticated rate limits'
         }
 
         const limitedResponse = await postJson(baseUrl, route.path, route.body, userAToken);
+        const limitedPayload = await limitedResponse.json();
         assert.equal(limitedResponse.status, 429);
-        assert.match(await limitedResponse.text(), /Demasiadas solicitudes autenticadas/);
+        assertResponseWithRequestId(limitedPayload, {
+          error: 'Demasiadas solicitudes autenticadas, intentá de nuevo más tarde.',
+        });
 
         const otherUserResponse = await postJson(baseUrl, route.path, route.body, userBToken);
         assert.equal(otherUserResponse.status, 200);
@@ -331,165 +339,6 @@ test('protected API routes enforce authentication and authenticated rate limits'
       }
     });
   }
-});
-
-test('/chat route responses', async (t) => {
-  await t.test('returns 400 when query is missing', async () => {
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-missing-query') },
-        error: null,
-      })),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', {}, 'chat-missing-query-token');
-
-      assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
-        error: 'Invalid request',
-        details: ['Query is required'],
-      });
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns answer and sources when RAG succeeds', async () => {
-    let capturedPrompt = '';
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-success') },
-        error: null,
-      })),
-      mockSearchDocuments(async () => [
-        { title: 'Guia', text: 'Contexto uno' },
-        { name: 'Manual', content: 'Contexto dos' },
-      ] as any),
-      mockGenerativeModel(() => ({
-        generateContent: async (prompt: string) => {
-          capturedPrompt = prompt;
-          return {
-            response: {
-              text: () => 'Respuesta generada',
-            },
-          };
-        },
-      })),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', { query: 'Que dice la guia?' }, 'chat-success-token');
-
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
-        answer: 'Respuesta generada',
-        sources: [
-          { name: 'Guia', content: 'Contexto uno' },
-          { name: 'Manual', content: 'Contexto dos' },
-        ],
-      });
-      assert.match(capturedPrompt, /Contexto uno/);
-      assert.match(capturedPrompt, /Contexto dos/);
-      assert.match(capturedPrompt, /Que dice la guia\?/);
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns fallback answer and skips Gemini when no documents are found', async () => {
-    let geminiCalled = false;
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-fallback') },
-        error: null,
-      })),
-      mockSearchDocuments(async () => []),
-      mockGenerativeModel(() => {
-        geminiCalled = true;
-        throw new Error('Gemini should not be called without context');
-      }),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', { query: 'sin contexto' }, 'chat-fallback-token');
-
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
-        answer: 'No encontré documentos relevantes para responder tu pregunta.',
-        sources: [],
-      });
-      assert.equal(geminiCalled, false);
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns 500 when document retrieval fails', async () => {
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-retrieval-error') },
-        error: null,
-      })),
-      mockSearchDocuments(async () => {
-        throw new Error('retrieval failed');
-      }),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', { query: 'fallo' }, 'chat-retrieval-error-token');
-
-      assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
-        error: 'Internal Server Error',
-      });
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns 500 when Gemini generation fails', async () => {
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('chat-gemini-error') },
-        error: null,
-      })),
-      mockSearchDocuments(async () => [
-        { content: 'Contexto disponible' },
-      ] as any),
-      mockGenerativeModel(() => ({
-        generateContent: async () => {
-          throw new Error('Gemini failed');
-        },
-      })),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/chat', { query: 'fallo gemini' }, 'chat-gemini-error-token');
-
-      assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
-        error: 'Internal Server Error',
-      });
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
 });
 
 test('/health route responses', async (t) => {
@@ -509,9 +358,10 @@ test('/health route responses', async (t) => {
 
     try {
       const response = await fetch(`${baseUrl}/health`);
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         status: 'ok',
         dependencies: { supabase: 'ok' },
       });
@@ -537,9 +387,10 @@ test('/health route responses', async (t) => {
 
     try {
       const response = await fetch(`${baseUrl}/health`);
+      const payload = await response.json();
 
       assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Internal Server Error',
       });
     } finally {
@@ -554,14 +405,65 @@ test('unknown routes return JSON 404s', async () => {
 
   try {
     const response = await fetch(`${baseUrl}/missing-route`);
+    const payload = await response.json();
 
     assert.equal(response.status, 404);
-    assert.deepEqual(await response.json(), {
+    assertResponseWithRequestId(payload, {
       error: 'Not Found',
     });
   } finally {
     await stopServer(server);
   }
+});
+
+test('cors configuration hardening', async (t) => {
+  await t.test('uses localhost fallback when not in production', async () => {
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      NODE_ENV: 'test',
+      ALLOWED_ORIGIN: '',
+    };
+
+    const { server, baseUrl } = await startServer(env);
+
+    try {
+      const response = await fetch(`${baseUrl}/missing-route`);
+
+      assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:3000');
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  await t.test('respects configured allowed origin', async () => {
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      NODE_ENV: 'production',
+      ALLOWED_ORIGIN: 'https://app.example.com',
+    };
+
+    const { server, baseUrl } = await startServer(env);
+
+    try {
+      const response = await fetch(`${baseUrl}/missing-route`);
+
+      assert.equal(response.headers.get('access-control-allow-origin'), 'https://app.example.com');
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  await t.test('fails fast in production when ALLOWED_ORIGIN is missing', async () => {
+    const env: NodeJS.ProcessEnv = {
+      SUPABASE_URL: 'https://example.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+      GEMINI_API_KEY: 'gemini-key',
+      NODE_ENV: 'production',
+      ALLOWED_ORIGIN: '   ',
+    };
+
+    assert.throws(() => validateEnvironment(env), /ALLOWED_ORIGIN/);
+  });
 });
 
 test('/query route responses', async (t) => {
@@ -577,9 +479,10 @@ test('/query route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/query', {}, 'query-missing-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['Query is required'],
       });
@@ -607,9 +510,10 @@ test('/query route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/query', { query: 'consulta' }, 'query-success-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         answer: 'Respuesta consolidada',
         sources: [
           { name: 'Manual', content: 'Contenido' },
@@ -637,9 +541,10 @@ test('/query route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/query', { query: 'sin datos' }, 'query-fallback-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         answer: 'No encontré documentos relevantes para responder tu pregunta.',
         sources: [],
       });
@@ -664,9 +569,10 @@ test('/query route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/query', { query: 'explode' }, 'query-error-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Internal Server Error',
       });
     } finally {
@@ -689,9 +595,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', {}, 'ingest-missing-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['URL is required'],
       });
@@ -713,9 +620,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'ftp://example.com' }, 'ingest-invalid-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['url must be a valid http or https URL'],
       });
@@ -745,9 +653,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/docs' }, 'ingest-success-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         status: 'success',
         chunks_inserted: 2,
         chunks_failed: 0,
@@ -799,9 +708,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/partial' }, 'ingest-partial-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         status: 'partial_success',
         chunks_inserted: 1,
         chunks_failed: 1,
@@ -831,9 +741,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/empty' }, 'ingest-empty-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         status: 'success',
         chunks_inserted: 0,
         chunks_failed: 0,
@@ -860,9 +771,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/fail' }, 'ingest-scraper-error-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Failed to ingest URL',
       });
     } finally {
@@ -888,9 +800,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/embed' }, 'ingest-embedding-error-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Failed to ingest URL',
       });
     } finally {
@@ -915,9 +828,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'not-a-url' }, 'ingest-invalid-url-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['url must be a valid http or https URL'],
       });

@@ -3,40 +3,57 @@ import express from 'express';
 import logger from './services/logger';
 import { authMiddleware } from './middleware/authMiddleware';
 import { publicLimiter, authLimiter } from './middleware/rateLimiter';
-import { chatHandler } from './controllers/rag';
 import { ingestHandler, queryHandler } from './controllers/api';
 import adminRoutes from './routes/admin';
 import { validateRequest } from './middleware/requestValidation';
 import { checkDependencies } from './services/health';
 import { errorMiddleware, notFoundHandler } from './middleware/errorMiddleware';
+import { getRequestId, requestIdMiddleware } from './middleware/requestId';
+
+function resolveAllowedOrigin(env: NodeJS.ProcessEnv): string {
+  const configuredOrigin = env.ALLOWED_ORIGIN?.trim();
+  const isProduction = env.NODE_ENV === 'production';
+
+  if (configuredOrigin) {
+    return configuredOrigin;
+  }
+
+  if (isProduction) {
+    throw new Error('Missing required environment variable: ALLOWED_ORIGIN (required in production)');
+  }
+
+  return 'http://localhost:3000';
+}
 
 // Validate required environment variables at startup
-function validateEnvironment(): void {
+export function validateEnvironment(env: NodeJS.ProcessEnv = process.env): void {
   const required = [
     'SUPABASE_URL',
     'SUPABASE_SERVICE_ROLE_KEY',
     'GEMINI_API_KEY'
   ];
 
-  const missing = required.filter(key => !process.env[key]);
+  const missing = required.filter(key => !env[key]);
   
   if (missing.length > 0) {
-    logger.error(`Missing required environment variables: ${missing.join(', ')}`);
-    process.exit(1);
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
+
+  resolveAllowedOrigin(env);
 
   logger.info('Environment variables validated');
 }
 
 validateEnvironment();
 
-export function createApp() {
+export function createApp(env: NodeJS.ProcessEnv = process.env) {
   const app = express();
+  const allowedOrigin = resolveAllowedOrigin(env);
 
   app.set('trust proxy', 1);
+  app.use(requestIdMiddleware);
 
   app.use((req, res, next) => {
-    const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
     res.header('Access-Control-Allow-Origin', allowedOrigin);
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -52,18 +69,8 @@ export function createApp() {
 
   app.get('/health', publicLimiter, async (_req, res) => {
     const dependencies = await checkDependencies();
-    res.json({ status: 'ok', dependencies });
+    res.json({ status: 'ok', dependencies, requestId: getRequestId(res) });
   });
-
-  app.post(
-    '/chat',
-    authMiddleware,
-    authLimiter,
-    validateRequest([
-      { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
-    ]),
-    chatHandler,
-  );
 
   app.post(
     '/ingest',

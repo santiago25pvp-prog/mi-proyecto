@@ -59,15 +59,28 @@ function mockListDocuments(
   };
 }
 
+function assertResponseWithRequestId(payload: any, expected: Record<string, unknown>) {
+  assert.equal(typeof payload.requestId, 'string');
+  assert.match(
+    payload.requestId,
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  );
+  assert.deepEqual(payload, {
+    ...expected,
+    requestId: payload.requestId,
+  });
+}
+
 test('admin routes enforce authentication and admin authorization', async (t) => {
   await t.test('returns 401 when bearer token is missing', async () => {
     const { server, baseUrl } = await startServer();
 
     try {
       const response = await fetch(`${baseUrl}/admin/documents`);
+      const payload = await response.json();
 
       assert.equal(response.status, 401);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Unauthorized: Missing or invalid token',
       });
     } finally {
@@ -94,9 +107,10 @@ test('admin routes enforce authentication and admin authorization', async (t) =>
           Authorization: 'Bearer valid-user-token',
         },
       });
+      const payload = await response.json();
 
       assert.equal(response.status, 403);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Forbidden: Admins only',
       });
     } finally {
@@ -145,11 +159,12 @@ test('admin routes enforce authentication and admin authorization', async (t) =>
           Authorization: 'Bearer valid-admin-token',
         },
       });
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
       assert.equal(receivedPage, 2);
       assert.equal(receivedPageSize, 25);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         data: [
           {
             id: 1,
@@ -187,9 +202,10 @@ test('admin routes enforce authentication and admin authorization', async (t) =>
           Authorization: 'Bearer valid-admin-token',
         },
       });
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: [
           'page must be a positive integer',
@@ -222,9 +238,10 @@ test('admin routes enforce authentication and admin authorization', async (t) =>
           Authorization: 'Bearer valid-admin-token',
         },
       });
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['id must be a positive integer'],
       });
