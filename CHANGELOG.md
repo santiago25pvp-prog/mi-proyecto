@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.10.3](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.2...v1.10.3) (2026-04-13)
+
+
+### Bug Fixes
+
+* enforce ALLOWED_ORIGIN in production ([f04e9a9](https://github.com/santiago25pvp-prog/mi-proyecto/commit/f04e9a9d719222532a0b5c35763564c7c64956df))
+* harden API reliability (CORS, requestId, retry) and maintenance updates ([408894a](https://github.com/santiago25pvp-prog/mi-proyecto/commit/408894a47398f9333aabf105a473d6e21f7c484e))
+* include requestId in api responses ([906b242](https://github.com/santiago25pvp-prog/mi-proyecto/commit/906b2424d7ddc0656339cfb887a35646977e34da))
+* retry embeddings on transient provider errors ([29916f1](https://github.com/santiago25pvp-prog/mi-proyecto/commit/29916f10714074746ddb1894d030216658ea139c))
+
 ## [1.10.2](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.1...v1.10.2) (2026-04-11)
 
 
