@@ -5,8 +5,9 @@ import type {
   DeleteDocumentResponse,
   IngestResponse,
 } from "@/lib/types";
+import { resolveApiUrl } from "@/lib/env";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = resolveApiUrl();
 
 type ErrorPayload = {
   error?: unknown;
