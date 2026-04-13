@@ -15,6 +15,12 @@ Esta carpeta contiene smoke tests mínimos para reducir dependencia de QA manual
 npm run test:e2e
 ```
 
+## Ejecución en CI
+
+- El workflow `ci` ahora incluye el job `frontend-e2e-smoke`.
+- Instala Chromium con Playwright y ejecuta `npm run test:e2e`.
+- Si falla, sube `frontend/playwright-report/` como artifact para debugging rápido.
+
 ## Nota
 
 Estos tests no reemplazan completamente QA visual/manual, pero cubren regresiones frecuentes de navegación y guards.
