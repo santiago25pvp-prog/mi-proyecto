@@ -17,16 +17,16 @@ const ingestionService = require('../services/ingestion') as typeof import('../s
 const scraperService = require('../services/scraper') as typeof import('../services/scraper');
 const splitterService = require('../services/splitter') as typeof import('../services/splitter');
 const embeddingService = require('../services/embedding') as typeof import('../services/embedding');
-const { createApp: buildApp } = require('../server') as typeof import('../server');
+const { createApp: buildApp, validateEnvironment } = require('../server') as typeof import('../server');
 
 const { ingestHandler, queryHandler } = apiModule;
 
 type RestoreFn = () => void;
 type AuthResult = Promise<{ data: { user: any }; error: any }>;
 
-async function startServer() {
+async function startServer(env?: NodeJS.ProcessEnv) {
   return await new Promise<{ server: http.Server; baseUrl: string }>((resolve) => {
-    const server = buildApp().listen(0, '127.0.0.1', () => {
+    const server = buildApp(env).listen(0, '127.0.0.1', () => {
       const { port } = server.address() as AddressInfo;
       resolve({
         server,
@@ -393,6 +393,56 @@ test('unknown routes return JSON 404s', async () => {
   } finally {
     await stopServer(server);
   }
+});
+
+test('cors configuration hardening', async (t) => {
+  await t.test('uses localhost fallback when not in production', async () => {
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      NODE_ENV: 'test',
+      ALLOWED_ORIGIN: '',
+    };
+
+    const { server, baseUrl } = await startServer(env);
+
+    try {
+      const response = await fetch(`${baseUrl}/missing-route`);
+
+      assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:3000');
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  await t.test('respects configured allowed origin', async () => {
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      NODE_ENV: 'production',
+      ALLOWED_ORIGIN: 'https://app.example.com',
+    };
+
+    const { server, baseUrl } = await startServer(env);
+
+    try {
+      const response = await fetch(`${baseUrl}/missing-route`);
+
+      assert.equal(response.headers.get('access-control-allow-origin'), 'https://app.example.com');
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  await t.test('fails fast in production when ALLOWED_ORIGIN is missing', async () => {
+    const env: NodeJS.ProcessEnv = {
+      SUPABASE_URL: 'https://example.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+      GEMINI_API_KEY: 'gemini-key',
+      NODE_ENV: 'production',
+      ALLOWED_ORIGIN: '   ',
+    };
+
+    assert.throws(() => validateEnvironment(env), /ALLOWED_ORIGIN/);
+  });
 });
 
 test('/query route responses', async (t) => {
