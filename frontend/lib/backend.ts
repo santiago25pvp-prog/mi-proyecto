@@ -48,7 +48,7 @@ async function request<T>(
 }
 
 export function sendChatMessage(token: string, query: string) {
-  return request<ChatResponse>("/chat", token, {
+  return request<ChatResponse>("/query", token, {
     method: "POST",
     body: JSON.stringify({ query }),
   });
