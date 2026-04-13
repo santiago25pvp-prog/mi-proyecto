@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.4](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.3...v1.10.4) (2026-04-13)
+
+
+### Bug Fixes
+
+* align frontend response types with requestId ([2046e8c](https://github.com/santiago25pvp-prog/mi-proyecto/commit/2046e8ce635046f7ca966106032a1890e4f9dce3))
+* align frontend response types with requestId ([2b4eedb](https://github.com/santiago25pvp-prog/mi-proyecto/commit/2b4eedb1d79397383827e30dea51f0099fcdf15f))
+
 ## [1.10.3](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.2...v1.10.3) (2026-04-13)
 
 
