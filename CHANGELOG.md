@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.4...v1.11.0) (2026-04-13)
+
+
+### Features
+
+* surface requestId in frontend error flows ([fc0274e](https://github.com/santiago25pvp-prog/mi-proyecto/commit/fc0274e6deba66751148e2645bce4763df955b79))
+* surface requestId in frontend error flows ([9fbecfd](https://github.com/santiago25pvp-prog/mi-proyecto/commit/9fbecfd13ee830a4e14d4c6235bff8695d99f46e))
+
 ## [1.10.4](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.10.3...v1.10.4) (2026-04-13)
 
 
