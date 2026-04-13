@@ -2,6 +2,7 @@ import type {
   AdminDocumentsResponse,
   AdminStats,
   ChatResponse,
+  DeleteDocumentResponse,
   IngestResponse,
 } from "@/lib/types";
 
@@ -70,7 +71,7 @@ export function fetchDocuments(token: string) {
 }
 
 export function deleteDocument(token: string, id: number) {
-  return request<{ message: string }>(`/admin/documents/${id}`, token, {
+  return request<DeleteDocumentResponse>(`/admin/documents/${id}`, token, {
     method: "DELETE",
   });
 }
