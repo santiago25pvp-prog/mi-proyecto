@@ -192,6 +192,18 @@ function authHeaders(token: string) {
   };
 }
 
+function assertResponseWithRequestId(payload: any, expected: Record<string, unknown>) {
+  assert.equal(typeof payload.requestId, 'string');
+  assert.match(
+    payload.requestId,
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  );
+  assert.deepEqual(payload, {
+    ...expected,
+    requestId: payload.requestId,
+  });
+}
+
 async function postJson(baseUrl: string, path: string, body: unknown, token?: string) {
   return await fetch(`${baseUrl}${path}`, {
     method: 'POST',
@@ -233,9 +245,10 @@ test('protected API routes enforce authentication and authenticated rate limits'
 
       try {
         const response = await postJson(baseUrl, route.path, route.body);
+        const payload = await response.json();
 
         assert.equal(response.status, 401);
-        assert.deepEqual(await response.json(), {
+        assertResponseWithRequestId(payload, {
           error: 'Unauthorized: Missing or invalid token',
         });
       } finally {
@@ -255,9 +268,10 @@ test('protected API routes enforce authentication and authenticated rate limits'
 
       try {
         const response = await postJson(baseUrl, route.path, route.body, 'invalid-token');
+        const payload = await response.json();
 
         assert.equal(response.status, 401);
-        assert.deepEqual(await response.json(), {
+        assertResponseWithRequestId(payload, {
           error: 'Unauthorized: Invalid token',
         });
       } finally {
@@ -277,9 +291,10 @@ test('protected API routes enforce authentication and authenticated rate limits'
 
       try {
         const response = await postJson(baseUrl, route.path, route.body, 'broken-token');
+        const payload = await response.json();
 
         assert.equal(response.status, 500);
-        assert.deepEqual(await response.json(), {
+        assertResponseWithRequestId(payload, {
           error: 'Internal Server Error during authentication',
         });
       } finally {
@@ -310,8 +325,11 @@ test('protected API routes enforce authentication and authenticated rate limits'
         }
 
         const limitedResponse = await postJson(baseUrl, route.path, route.body, userAToken);
+        const limitedPayload = await limitedResponse.json();
         assert.equal(limitedResponse.status, 429);
-        assert.match(await limitedResponse.text(), /Demasiadas solicitudes autenticadas/);
+        assertResponseWithRequestId(limitedPayload, {
+          error: 'Demasiadas solicitudes autenticadas, intentá de nuevo más tarde.',
+        });
 
         const otherUserResponse = await postJson(baseUrl, route.path, route.body, userBToken);
         assert.equal(otherUserResponse.status, 200);
@@ -340,9 +358,10 @@ test('/health route responses', async (t) => {
 
     try {
       const response = await fetch(`${baseUrl}/health`);
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         status: 'ok',
         dependencies: { supabase: 'ok' },
       });
@@ -368,9 +387,10 @@ test('/health route responses', async (t) => {
 
     try {
       const response = await fetch(`${baseUrl}/health`);
+      const payload = await response.json();
 
       assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Internal Server Error',
       });
     } finally {
@@ -385,9 +405,10 @@ test('unknown routes return JSON 404s', async () => {
 
   try {
     const response = await fetch(`${baseUrl}/missing-route`);
+    const payload = await response.json();
 
     assert.equal(response.status, 404);
-    assert.deepEqual(await response.json(), {
+    assertResponseWithRequestId(payload, {
       error: 'Not Found',
     });
   } finally {
@@ -458,9 +479,10 @@ test('/query route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/query', {}, 'query-missing-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['Query is required'],
       });
@@ -488,9 +510,10 @@ test('/query route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/query', { query: 'consulta' }, 'query-success-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         answer: 'Respuesta consolidada',
         sources: [
           { name: 'Manual', content: 'Contenido' },
@@ -518,9 +541,10 @@ test('/query route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/query', { query: 'sin datos' }, 'query-fallback-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         answer: 'No encontré documentos relevantes para responder tu pregunta.',
         sources: [],
       });
@@ -545,9 +569,10 @@ test('/query route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/query', { query: 'explode' }, 'query-error-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Internal Server Error',
       });
     } finally {
@@ -570,9 +595,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', {}, 'ingest-missing-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['URL is required'],
       });
@@ -594,9 +620,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'ftp://example.com' }, 'ingest-invalid-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['url must be a valid http or https URL'],
       });
@@ -626,9 +653,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/docs' }, 'ingest-success-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         status: 'success',
         chunks_inserted: 2,
         chunks_failed: 0,
@@ -680,9 +708,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/partial' }, 'ingest-partial-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         status: 'partial_success',
         chunks_inserted: 1,
         chunks_failed: 1,
@@ -712,9 +741,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/empty' }, 'ingest-empty-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         status: 'success',
         chunks_inserted: 0,
         chunks_failed: 0,
@@ -741,9 +771,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/fail' }, 'ingest-scraper-error-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Failed to ingest URL',
       });
     } finally {
@@ -769,9 +800,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/embed' }, 'ingest-embedding-error-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Failed to ingest URL',
       });
     } finally {
@@ -796,9 +828,10 @@ test('/ingest route responses', async (t) => {
 
     try {
       const response = await postJson(baseUrl, '/ingest', { url: 'not-a-url' }, 'ingest-invalid-url-token');
+      const payload = await response.json();
 
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), {
+      assertResponseWithRequestId(payload, {
         error: 'Invalid request',
         details: ['url must be a valid http or https URL'],
       });

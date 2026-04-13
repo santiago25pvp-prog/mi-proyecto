@@ -8,6 +8,7 @@ import adminRoutes from './routes/admin';
 import { validateRequest } from './middleware/requestValidation';
 import { checkDependencies } from './services/health';
 import { errorMiddleware, notFoundHandler } from './middleware/errorMiddleware';
+import { getRequestId, requestIdMiddleware } from './middleware/requestId';
 
 function resolveAllowedOrigin(env: NodeJS.ProcessEnv): string {
   const configuredOrigin = env.ALLOWED_ORIGIN?.trim();
@@ -50,6 +51,7 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
   const allowedOrigin = resolveAllowedOrigin(env);
 
   app.set('trust proxy', 1);
+  app.use(requestIdMiddleware);
 
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', allowedOrigin);
@@ -67,8 +69,8 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
 
    app.get('/health', publicLimiter, async (_req, res) => {
      const dependencies = await checkDependencies();
-     res.json({ status: 'ok', dependencies });
-   });
+     res.json({ status: 'ok', dependencies, requestId: getRequestId(res) });
+    });
 
    app.post(
      '/ingest',
