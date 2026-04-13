@@ -17,5 +17,9 @@ export function getRequestId(res: Response): string {
 
   const requestId = crypto.randomUUID();
   res.locals.requestId = requestId;
+
+  if (!res.headersSent) {
+    res.setHeader('x-request-id', requestId);
+  }
   return requestId;
 }
