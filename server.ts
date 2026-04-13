@@ -65,34 +65,34 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
     next();
   });
 
-   app.use(express.json());
+  app.use(express.json());
 
-   app.get('/health', publicLimiter, async (_req, res) => {
-     const dependencies = await checkDependencies();
-     res.json({ status: 'ok', dependencies, requestId: getRequestId(res) });
-    });
+  app.get('/health', publicLimiter, async (_req, res) => {
+    const dependencies = await checkDependencies();
+    res.json({ status: 'ok', dependencies, requestId: getRequestId(res) });
+  });
 
-   app.post(
-     '/ingest',
-     authMiddleware,
-     authLimiter,
-     validateRequest([
-       { source: 'body', field: 'url', type: 'url', required: true, requiredMessage: 'URL is required', message: 'url must be a valid http or https URL' },
-     ]),
-     ingestHandler,
-   );
+  app.post(
+    '/ingest',
+    authMiddleware,
+    authLimiter,
+    validateRequest([
+      { source: 'body', field: 'url', type: 'url', required: true, requiredMessage: 'URL is required', message: 'url must be a valid http or https URL' },
+    ]),
+    ingestHandler,
+  );
 
-   app.post(
-     '/query',
-     authMiddleware,
-     authLimiter,
-     validateRequest([
-       { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
-     ]),
-     queryHandler,
-   );
+  app.post(
+    '/query',
+    authMiddleware,
+    authLimiter,
+    validateRequest([
+      { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
+    ]),
+    queryHandler,
+  );
 
-   app.use('/admin', adminRoutes);
+  app.use('/admin', adminRoutes);
 
   app.use(notFoundHandler);
   app.use(errorMiddleware);
