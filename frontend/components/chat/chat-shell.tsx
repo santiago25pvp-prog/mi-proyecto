@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { sendChatMessage } from "@/lib/backend";
+import { getBackendErrorInfo, sendChatMessage } from "@/lib/backend";
 import {
   getChatStorageKey,
   loadPersistedChatStateWithKey,
@@ -32,6 +32,7 @@ export function ChatShell() {
   const [pending, setPending] = useState(false);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const storageKey = getChatStorageKey(user?.id);
 
@@ -90,6 +91,7 @@ export function ChatShell() {
     setMessages((current) => [...current, userMessage]);
     setInput("");
     setError(null);
+    setErrorRequestId(null);
     setPending(true);
 
     try {
@@ -110,15 +112,16 @@ export function ChatShell() {
       setMessages((current) => [...current, assistantMessage]);
       setActiveMessageId(assistantMessage.id);
     } catch (submitError) {
-      const message =
-        submitError instanceof Error
-          ? submitError.message
-          : "No se pudo completar la consulta.";
+      const { message, requestId } = getBackendErrorInfo(
+        submitError,
+        "No se pudo completar la consulta.",
+      );
 
       setMessages((current) => removeMessageById(current, userMessage.id));
       setInput(prompt);
       setError(message);
-      toast.error(message);
+      setErrorRequestId(requestId);
+      toast.error(requestId ? `${message} (Reference ID: ${requestId})` : message);
     } finally {
       setPending(false);
     }
@@ -308,6 +311,12 @@ export function ChatShell() {
           {error ? (
             <p className="mt-4 text-sm text-[var(--danger)]" role="alert">
               {error}
+            </p>
+          ) : null}
+
+          {errorRequestId ? (
+            <p className="mt-1 text-xs text-white/65" role="note">
+              Reference ID: {errorRequestId}
             </p>
           ) : null}
 

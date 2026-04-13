@@ -8,6 +8,39 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+type ErrorPayload = {
+  error?: unknown;
+  requestId?: unknown;
+};
+
+export class BackendApiError extends Error {
+  requestId: string | null;
+  status: number;
+
+  constructor(message: string, status: number, requestId: string | null = null) {
+    super(message);
+    this.name = "BackendApiError";
+    this.status = status;
+    this.requestId = requestId;
+  }
+}
+
+export type BackendErrorInfo = {
+  message: string;
+  requestId: string | null;
+};
+
+export function getBackendErrorInfo(
+  error: unknown,
+  fallbackMessage: string,
+): BackendErrorInfo {
+  const message = error instanceof Error ? error.message : fallbackMessage;
+  const requestId =
+    error instanceof BackendApiError && error.requestId ? error.requestId : null;
+
+  return { message, requestId };
+}
+
 async function request<T>(
   path: string,
   token: string,
@@ -34,15 +67,18 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    const payloadObject =
+      typeof payload === "object" && payload !== null ? (payload as ErrorPayload) : null;
     const message =
-      typeof payload === "object" &&
-      payload !== null &&
-      "error" in payload &&
-      typeof payload.error === "string"
-        ? payload.error
+      payloadObject && typeof payloadObject.error === "string"
+        ? payloadObject.error
         : `Request failed with status ${response.status}`;
+    const requestId =
+      payloadObject && typeof payloadObject.requestId === "string"
+        ? payloadObject.requestId
+        : null;
 
-    throw new Error(message);
+    throw new BackendApiError(message, response.status, requestId);
   }
 
   return payload as T;
