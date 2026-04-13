@@ -3,7 +3,11 @@ export interface ChatSource {
   content: string;
 }
 
-export interface ChatResponse {
+export interface ApiResponseMeta {
+  requestId?: string;
+}
+
+export interface ChatResponse extends ApiResponseMeta {
   answer: string;
   sources: ChatSource[];
 }
@@ -23,20 +27,24 @@ export interface AdminDocument {
   metadata: Record<string, unknown> | null;
 }
 
-export interface AdminDocumentsResponse {
+export interface AdminDocumentsResponse extends ApiResponseMeta {
   data: AdminDocument[];
   count: number | null;
 }
 
-export interface AdminStats {
+export interface AdminStats extends ApiResponseMeta {
   docCount: number | null;
   requestCount: number | null;
 }
 
-export interface IngestResponse {
+export interface IngestResponse extends ApiResponseMeta {
   status: "success" | "partial_success";
   chunks_inserted: number;
   chunks_failed: number;
+}
+
+export interface DeleteDocumentResponse extends ApiResponseMeta {
+  message: string;
 }
 
 export interface SignUpResult {
