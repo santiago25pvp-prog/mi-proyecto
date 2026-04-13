@@ -8,8 +8,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 export const GEMINI_EMBEDDING_MODEL = 'gemini-embedding-001';
 export const GEMINI_EMBEDDING_DIMENSIONS = 3072;
 const DEFAULT_BATCH_SIZE = 10;
-const MAX_RETRY_ATTEMPTS = 3;
+const MAX_RETRY_ATTEMPTS = 5;
 const INITIAL_RETRY_DELAY_MS = 6000;
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 503]);
 
 // LRU Cache for embeddings with bounded memory
 // max: 10k embeddings, maxSize: 100MB, ttl: 1 hour
@@ -50,15 +51,15 @@ function validateEmbedding(embedding: number[]) {
     }
 }
 
-function isRateLimitError(error: unknown): boolean {
+function isRetryableError(error: unknown): boolean {
     if (error instanceof GoogleGenerativeAIFetchError) {
-        return error.status === 429;
+        return error.status !== undefined && RETRYABLE_STATUS_CODES.has(error.status);
     }
 
     return typeof error === 'object'
         && error !== null
         && 'status' in error
-        && (error as { status?: number }).status === 429;
+        && RETRYABLE_STATUS_CODES.has((error as { status?: number }).status ?? -1);
 }
 
 function extractRetryDelayMs(error: unknown): number | null {
@@ -84,14 +85,14 @@ function wait(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function withRateLimitRetry<T>(operation: () => Promise<T>): Promise<T> {
+async function withTransientRetry<T>(operation: () => Promise<T>): Promise<T> {
     let attempt = 1;
 
     while (true) {
         try {
             return await operation();
         } catch (error) {
-            if (!isRateLimitError(error) || attempt >= MAX_RETRY_ATTEMPTS) {
+            if (!isRetryableError(error) || attempt >= MAX_RETRY_ATTEMPTS) {
                 throw error;
             }
 
@@ -100,7 +101,7 @@ async function withRateLimitRetry<T>(operation: () => Promise<T>): Promise<T> {
             const delayMs = geminiRetryDelayMs ?? INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
 
             console.warn(
-                `[Embedding] Rate limit (429) on attempt ${attempt}/${MAX_RETRY_ATTEMPTS}. ` +
+                `[Embedding] Transient provider error on attempt ${attempt}/${MAX_RETRY_ATTEMPTS}. ` +
                 `Retrying in ${delayMs}ms${geminiRetryDelayMs ? ' (from Gemini response)' : ' (exponential backoff)'}`
             );
 
@@ -135,7 +136,7 @@ export const getEmbeddings = async (
             continue;
         }
 
-        const response = await withRateLimitRetry(() =>
+        const response = await withTransientRetry(() =>
             model.batchEmbedContents({
                 requests: batchEntries.map(({ text }) => ({
                     content: toContent(text),
@@ -172,7 +173,7 @@ export const getEmbedding = async (
     }
 
     const model = genAI.getGenerativeModel({ model: GEMINI_EMBEDDING_MODEL });
-    const result = await withRateLimitRetry(() =>
+    const result = await withTransientRetry(() =>
         model.embedContent({
             content: toContent(text),
             taskType,
