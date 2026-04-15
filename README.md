@@ -356,7 +356,10 @@ Default ports:
 - `200 OK` response:
 
 ```json
-{ "message": "Document deleted successfully" }
+{
+  "message": "Document deleted successfully",
+  "requestId": "req_1234567890"
+}
 ```
 
 - `500 Internal Server Error` response:
