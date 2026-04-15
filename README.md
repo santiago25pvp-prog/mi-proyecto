@@ -384,7 +384,7 @@ Default ports:
 - `500 Internal Server Error` response:
 
 ```json
-{ "error": "Failed to get stats" }
+{ "error": "Internal Server Error", "requestId": "req_1234567890" }
 ```
 
 ## Changelog
