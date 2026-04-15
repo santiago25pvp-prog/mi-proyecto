@@ -45,6 +45,16 @@
   - `npm test`
   - `npm run test:e2e`
 
+### Merge Policy / Required Checks
+
+- Pull requests into `main` must pass these required checks:
+  - `Backend Typecheck, Tests & Build`
+  - `Frontend Build`
+  - `Frontend E2E Smoke`
+- These checks prevent merges with type errors, broken builds, or regressions in key user flows.
+- Branch protection currently uses non-strict status checks (head branch does not need to be forcibly up to date before merge).
+- CI governance runbook: [`docs/ci-governance.md`](docs/ci-governance.md)
+
 ### RAG Evaluation (Metrics-Based)
 
 - Run the evaluation harness with the bundled sample dataset:
