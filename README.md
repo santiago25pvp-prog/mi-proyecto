@@ -1,59 +1,71 @@
 # mi-proyecto
 
-`mi-proyecto` es un sistema RAG (Retrieval-Augmented Generation) para convertir contenido web en una base de conocimiento consultable. Resuelve el problema de tener documentacion, manuales o paginas dispersas en la web y necesitarlas como respuestas trazables dentro de una API y una interfaz web autenticada, con almacenamiento vectorial en Supabase y generacion de respuestas con Gemini.
+`mi-proyecto` is a RAG (Retrieval-Augmented Generation) system that turns web content into a searchable knowledge base. It solves the problem of having documentation, manuals, or pages scattered across the web and needing traceable answers through an API and an authenticated web interface, with vector storage in Supabase and answer generation with Gemini.
 
-## Caracteristicas principales
+## Main Features
 
-### Arquitectura RAG
+### RAG Architecture
 
-- Ingesta una URL, limpia el HTML y extrae solo el texto util.
-- Divide el contenido en chunks de 1000 caracteres con overlap de 200.
-- Genera embeddings con `gemini-embedding-001` en dimension `3072`.
-- Guarda contenido, metadatos y embeddings en Supabase con `pgvector`.
-- Recupera documentos relevantes mediante la funcion SQL `match_documents`.
-- Genera la respuesta final con `gemini-2.5-flash` usando el contexto recuperado.
+- Ingests a URL, cleans the HTML, and extracts only useful text.
+- Splits content into 1000-character chunks with 200 overlap.
+- Generates embeddings with `gemini-embedding-001` at `3072` dimensions.
+- Stores content, metadata, and embeddings in Supabase using `pgvector`.
+- Retrieves relevant documents through the SQL function `match_documents`.
+- Generates the final answer with `gemini-2.5-flash` using retrieved context.
 
-### API unificada
+### Unified API
 
-- `POST /query` recibe `query` y devuelve el formato JSON: `{ "answer": string, "sources": [] }`.
-- `POST /ingest` expone el pipeline de carga de documentos y reporta inserciones exitosas y fallidas.
-- Los endpoints administrativos permiten listar documentos, borrarlos y consultar estadisticas.
+- `POST /query` receives `query` and returns JSON in this format: `{ "answer": string, "sources": [] }`.
+- `POST /ingest` exposes the document ingestion pipeline and reports successful and failed insertions.
+- Administrative endpoints allow listing documents, deleting documents, and checking stats.
 
-### Autenticacion y autorizacion
+### Authentication and Authorization
 
-- La API usa JWT de Supabase en el header `Authorization: Bearer <token>`.
-- `authMiddleware` valida el token contra Supabase antes de permitir acceso a rutas protegidas.
-- `adminMiddleware` restringe `/admin/*` a usuarios con `app_metadata.role === "admin"`.
-- El frontend usa Supabase Auth para login, registro y manejo de sesion.
+- The API uses Supabase JWT in the `Authorization: Bearer <token>` header.
+- `authMiddleware` validates the token against Supabase before allowing access to protected routes.
+- `adminMiddleware` restricts `/admin/*` to users with `app_metadata.role === "admin"`.
+- The frontend uses Supabase Auth for login, registration, and session handling.
 
 ### Tests
 
-- El backend se valida con `node:test` en `tests/admin-auth.test.ts` y `tests/api-routes.test.ts`.
-- Hay cobertura de autenticacion, autorizacion, rate limiting y respuestas de `/query` y `/ingest`.
-- El frontend tambien tiene tests de helpers en `frontend/tests/chat-storage.test.ts` y `frontend/tests/auth-session.test.ts`.
-- El workflow de GitHub Actions ejecuta tests y builds en PRs hacia `main` y `develop`.
+- The backend full suite runs with `node:test` and includes:
+  `tests/admin-auth.test.ts`, `tests/api-routes.test.ts`, `tests/ai.test.ts`, `tests/rag.test.ts`, `tests/retrieval.test.ts`, `tests/embedding.test.ts`, and `tests/splitter.test.ts`.
+- Backend coverage includes authentication, authorization, rate limiting, API route contracts, AI/RAG orchestration, retrieval behavior, embedding generation, and splitter logic.
+- The frontend test suite currently includes helper and API/env behavior tests in:
+  `frontend/tests/chat-storage.test.ts`, `frontend/tests/auth-session.test.ts`, `frontend/tests/chat-messages.test.ts`, `frontend/tests/backend.test.ts`, and `frontend/tests/env.test.ts`.
+- The GitHub Actions workflow runs quality and build checks on pull requests to `main` and `develop`.
 
-### Operacion y robustez
+### Quality Gates
 
-- `server.ts` valida variables de entorno en el arranque y expone un healthcheck con verificacion de dependencia.
-- El backend usa logging estructurado con Winston, y actualmente agrega request IDs en los handlers de API de `ingest` y `query`.
-- El scraper tiene timeout, limites de redireccion y limites de tamaño para evitar DoS triviales.
-- El chat del frontend persiste transcript y seleccion activa por usuario en `localStorage`.
-- La autenticacion de frontend refresca la sesion cuando el token esta por expirar.
+- Backend:
+  - `npx tsc --noEmit`
+  - `npm run test:backend`
+- Frontend (inside `frontend`):
+  - `npx tsc --noEmit`
+  - `npm test`
+  - `npm run test:e2e`
 
-## Instalacion
+### Operations and Robustness
 
-### 1. Seleccionar la version de Node
+- `server.ts` validates environment variables on startup and exposes a healthcheck with dependency verification.
+- The backend uses structured logging with Winston and currently adds request IDs in the `ingest` and `query` API handlers.
+- The scraper has timeout, redirect limits, and payload size limits to prevent trivial DoS cases.
+- The frontend chat persists transcript and active selection per user in `localStorage`.
+- Frontend authentication refreshes the session when the token is close to expiration.
 
-Este repo usa la version definida en `.nvmrc`.
+## Installation
+
+### 1. Select Node Version
+
+This repo uses the version defined in `.nvmrc`.
 
 ```bash
 nvm use
 ```
 
-### 2. Configurar variables de entorno
+### 2. Configure Environment Variables
 
-Crea el archivo `.env` en la raiz del proyecto:
+Create the `.env` file in the project root:
 
 ```env
 SUPABASE_URL=https://tu-proyecto.supabase.co
@@ -63,14 +75,14 @@ SUPABASE_ANON_KEY=tu_supabase_anon_key
 PORT=3001
 ```
 
-Notas:
+Notes:
 
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `GEMINI_API_KEY` son necesarias para el backend.
-- `SUPABASE_ANON_KEY` no aparece en `.env.example`, pero si es util para los scripts de autenticacion en `scripts/get-token.ts`.
-- `PORT` es opcional; por defecto el backend escucha en `3001`.
-- En `production`, `ALLOWED_ORIGIN` es obligatorio y el backend falla en el arranque si falta.
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `GEMINI_API_KEY` are required for the backend.
+- `SUPABASE_ANON_KEY` is not listed in `.env.example`, but it is useful for auth scripts in `scripts/get-token.ts`.
+- `PORT` is optional; by default the backend listens on `3001`.
+- In `production`, `ALLOWED_ORIGIN` is required and backend startup fails if it is missing.
 
-Crea el archivo `frontend/.env.local`:
+Create the `frontend/.env.local` file:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
@@ -78,29 +90,29 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
 NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
-Notas frontend:
+Frontend notes:
 
-- `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` son obligatorias para inicializar Supabase en el navegador.
-- `NEXT_PUBLIC_API_URL` tiene fallback a `http://localhost:3001` solo fuera de `production`.
-- En `production`, `NEXT_PUBLIC_API_URL` es obligatorio y el frontend falla al resolver la configuracion si falta.
-- En `NODE_ENV=test` (smoke E2E), frontend usa fallback deterministico de Supabase para no romper el arranque por env faltante.
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are required to initialize Supabase in the browser.
+- `NEXT_PUBLIC_API_URL` falls back to `http://localhost:3001` only outside `production`.
+- In `production`, `NEXT_PUBLIC_API_URL` is required and frontend config resolution fails if it is missing.
+- In `NODE_ENV=test` (E2E smoke), frontend uses deterministic Supabase fallback values so startup does not fail due to missing env vars.
 
-### 3. Instalar dependencias
+### 3. Install Dependencies
 
-Instala dependencias del backend en la raiz:
+Install backend dependencies in the root:
 
 ```bash
 npm install
 ```
 
-Instala dependencias del frontend:
+Install frontend dependencies:
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 4. Ejecutar el proyecto en local
+### 4. Run Locally
 
 Backend:
 
@@ -115,12 +127,12 @@ cd frontend
 npm run dev
 ```
 
-Puertos por defecto:
+Default ports:
 
 - Backend: `http://localhost:3001`
 - Frontend: `http://localhost:3000`
 
-## Estructura del repositorio
+## Repository Structure
 
 ```text
 .
@@ -138,54 +150,54 @@ Puertos por defecto:
 ```
 
 - `controllers/`
-  Contiene los handlers HTTP del backend.
-  - `api.ts`: expone `/ingest` y `/query`.
-  - `admin.ts`: expone operaciones administrativas sobre documentos y estadisticas.
+  Contains backend HTTP handlers.
+  - `api.ts`: exposes `/ingest` and `/query`.
+  - `admin.ts`: exposes administrative operations for documents and stats.
 
 - `services/`
-  Implementa la logica de dominio del RAG y del panel administrativo.
-  - `scraper.ts`: descarga y limpia HTML.
-  - `splitter.ts`: parte el texto en chunks.
-  - `embedding.ts`: crea embeddings con Gemini, cacheados con LRU y soporte batch para ingesta.
-  - `retrieval.ts`: ejecuta la busqueda vectorial en Supabase.
-  - `ingestion.ts`: orquesta scraping, splitting, embeddings e insercion.
-  - `vector-db.ts`: crea el cliente de Supabase del backend.
-  - `adminService.ts`: lista, borra y resume documentos.
+  Implements RAG and admin domain logic.
+  - `scraper.ts`: downloads and cleans HTML.
+  - `splitter.ts`: splits text into chunks.
+  - `embedding.ts`: creates Gemini embeddings, with LRU cache and batch support for ingestion.
+  - `retrieval.ts`: executes vector search in Supabase.
+  - `ingestion.ts`: orchestrates scraping, splitting, embeddings, and insertions.
+  - `vector-db.ts`: creates backend Supabase client.
+  - `adminService.ts`: lists, deletes, and summarizes documents.
 
 - `migrations/`
-  Contiene la definicion de la base vectorial.
-  - `001_init_rag.sql`: crea la extension `vector` y la tabla `documents`.
-  - `002_reconcile_document_embeddings.sql`: normaliza embeddings a `vector(3072)` y crea la funcion `match_documents`.
+  Contains vector database definition.
+  - `001_init_rag.sql`: creates `vector` extension and `documents` table.
+  - `002_reconcile_document_embeddings.sql`: normalizes embeddings to `vector(3072)` and creates the `match_documents` function.
 
 - `frontend/`
-  Aplicacion Next.js que consume la API y Supabase Auth.
-  - `app/`: paginas de `chat`, `admin`, `login` y `register`.
-  - `components/`: UI, auth, chat, admin y providers.
-  - `lib/backend.ts`: cliente fetch para la API del backend.
-  - `lib/supabase-browser.ts`: cliente Supabase del browser.
-  - `lib/chat-storage.ts` y `lib/auth-session.ts`: persistencia local del chat y refresco de sesion.
-  - `tests/`: tests de helpers para persistencia de chat y refresco de sesion.
+  Next.js app that consumes the API and Supabase Auth.
+  - `app/`: `chat`, `admin`, `login`, and `register` pages.
+  - `components/`: UI, auth, chat, admin, and providers.
+  - `lib/backend.ts`: fetch client for backend API.
+  - `lib/supabase-browser.ts`: browser Supabase client.
+  - `lib/chat-storage.ts` and `lib/auth-session.ts`: local chat persistence and session refresh.
+  - `tests/`: helper and API/env behavior tests.
 
 - `middleware/`
-  Middleware de autenticacion, autorizacion admin y rate limiting.
+  Authentication, admin authorization, and rate limiting middleware.
 
 - `routes/`
-  Router de Express para el area administrativa.
+  Express router for the admin area.
 
 - `tests/`
-  Suite de pruebas del backend con foco en auth, admin, contratos JSON y healthcheck.
+  Backend test suite focused on auth, admin, JSON contracts, healthcheck, AI/RAG, retrieval, embeddings, and splitter behavior.
 
 - `scripts/`
-  Utilidades de soporte para admin, auth y pruebas manuales del flujo RAG.
+  Support utilities for admin, auth, and manual RAG flow testing.
 
-## Referencia de API
+## API Reference
 
-### Convenciones generales
+### General Conventions
 
-- Base URL backend local: `http://localhost:3001`
-- Content-Type esperado en requests con body: `application/json`
-- Auth protegida: `Authorization: Bearer <jwt_de_supabase>`
-- Respuestas de error de auth:
+- Local backend base URL: `http://localhost:3001`
+- Expected content type for requests with body: `application/json`
+- Protected auth header: `Authorization: Bearer <supabase_jwt>`
+- Auth error responses:
 
 ```json
 { "error": "Unauthorized: Missing or invalid token" }
@@ -195,23 +207,23 @@ Puertos por defecto:
 { "error": "Unauthorized: Invalid token" }
 ```
 
-- Respuesta de error admin:
+- Admin error response:
 
 ```json
 { "error": "Forbidden: Admins only" }
 ```
 
-- Los rate limits usan mensaje plano, no JSON:
-  - Publico: `Demasiadas solicitudes, intenta de nuevo mas tarde.`
-  - Autenticado: `Demasiadas solicitudes autenticadas, intenta de nuevo mas tarde.`
+- Rate limits use plain text messages, not JSON:
+  - Public: `Demasiadas solicitudes, intenta de nuevo mas tarde.`
+  - Authenticated: `Demasiadas solicitudes autenticadas, intenta de nuevo mas tarde.`
 
 ### GET /health
 
-- Metodo: `GET`
-- Auth: no requerida
-- Query params: ninguno
-- Body: ninguno
-- Respuesta `200 OK`:
+- Method: `GET`
+- Auth: not required
+- Query params: none
+- Body: none
+- `200 OK` response:
 
 ```json
 { "status": "ok", "dependencies": { "supabase": "ok" } }
@@ -219,17 +231,17 @@ Puertos por defecto:
 
 ### POST /query
 
-- Metodo: `POST`
-- Auth: requerida
-- Body JSON:
+- Method: `POST`
+- Auth: required
+- JSON body:
 
 ```json
 { "query": "consulta" }
 ```
 
-- Parametros:
-  - `query` (string, obligatorio): consulta que se resolvera con RAG.
-- Respuesta `200 OK`:
+- Parameters:
+  - `query` (string, required): query that will be answered with RAG.
+- `200 OK` response:
 
 ```json
 {
@@ -243,13 +255,13 @@ Puertos por defecto:
 }
 ```
 
-- Respuesta `400 Bad Request`:
+- `400 Bad Request` response:
 
 ```json
 { "error": "Query is required" }
 ```
 
-- Respuesta `500 Internal Server Error`:
+- `500 Internal Server Error` response:
 
 ```json
 { "error": "Failed to process query" }
@@ -257,17 +269,17 @@ Puertos por defecto:
 
 ### POST /ingest
 
-- Metodo: `POST`
-- Auth: requerida
-- Body JSON:
+- Method: `POST`
+- Auth: required
+- JSON body:
 
 ```json
 { "url": "https://example.com/docs" }
 ```
 
-- Parametros:
-  - `url` (string, obligatorio): URL a scrapear e indexar.
-- Respuesta `200 OK` cuando toda la ingesta sale bien:
+- Parameters:
+  - `url` (string, required): URL to scrape and index.
+- `200 OK` response when full ingestion succeeds:
 
 ```json
 {
@@ -277,7 +289,7 @@ Puertos por defecto:
 }
 ```
 
-- Respuesta `200 OK` cuando hay inserciones parciales:
+- `200 OK` response when ingestion is partial:
 
 ```json
 {
@@ -287,13 +299,13 @@ Puertos por defecto:
 }
 ```
 
-- Respuesta `400 Bad Request`:
+- `400 Bad Request` response:
 
 ```json
 { "error": "URL is required" }
 ```
 
-- Respuesta `500 Internal Server Error`:
+- `500 Internal Server Error` response:
 
 ```json
 { "error": "Failed to ingest URL" }
@@ -301,14 +313,14 @@ Puertos por defecto:
 
 ### GET /admin/documents
 
-- Metodo: `GET`
-- Auth: requerida
-- Rol admin: requerido
+- Method: `GET`
+- Auth: required
+- Admin role: required
 - Query params:
-  - `page` (number, opcional, default `1`)
-  - `pageSize` (number, opcional, default `10`)
-- Body: ninguno
-- Respuesta `200 OK`:
+  - `page` (number, optional, default `1`)
+  - `pageSize` (number, optional, default `10`)
+- Body: none
+- `200 OK` response:
 
 ```json
 {
@@ -327,7 +339,7 @@ Puertos por defecto:
 }
 ```
 
-- Respuesta `500 Internal Server Error`:
+- `500 Internal Server Error` response:
 
 ```json
 { "error": "Failed to list documents" }
@@ -335,19 +347,19 @@ Puertos por defecto:
 
 ### DELETE /admin/documents/:id
 
-- Metodo: `DELETE`
-- Auth: requerida
-- Rol admin: requerido
+- Method: `DELETE`
+- Auth: required
+- Admin role: required
 - Path params:
-  - `id` (number, obligatorio): identificador del documento en la tabla `documents`.
-- Body: ninguno
-- Respuesta `200 OK`:
+  - `id` (number, required): document identifier in the `documents` table.
+- Body: none
+- `200 OK` response:
 
 ```json
 { "message": "Document deleted successfully" }
 ```
 
-- Respuesta `500 Internal Server Error`:
+- `500 Internal Server Error` response:
 
 ```json
 { "error": "Failed to delete document" }
@@ -355,12 +367,12 @@ Puertos por defecto:
 
 ### GET /admin/stats
 
-- Metodo: `GET`
-- Auth: requerida
-- Rol admin: requerido
-- Query params: ninguno
-- Body: ninguno
-- Respuesta `200 OK`:
+- Method: `GET`
+- Auth: required
+- Admin role: required
+- Query params: none
+- Body: none
+- `200 OK` response:
 
 ```json
 {
@@ -369,12 +381,12 @@ Puertos por defecto:
 }
 ```
 
-- Respuesta `500 Internal Server Error`:
+- `500 Internal Server Error` response:
 
 ```json
 { "error": "Failed to get stats" }
 ```
 
-## Historial de cambios
+## Changelog
 
-El historial de versiones y releases del proyecto esta en [`CHANGELOG.md`](./CHANGELOG.md).
+Project version and release history is in [`CHANGELOG.md`](./CHANGELOG.md).
