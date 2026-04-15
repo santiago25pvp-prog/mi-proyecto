@@ -15,7 +15,7 @@
 
 ### Unified API
 
-- `POST /query` receives `query` and returns JSON in this format: `{ "answer": string, "sources": [] }`.
+- `POST /query` receives `query` and returns JSON in this format: `{ "requestId": string, "answer": string, "sources": [] }`.
 - `POST /ingest` exposes the document ingestion pipeline and reports successful and failed insertions.
 - Administrative endpoints allow listing documents, deleting documents, and checking stats.
 
