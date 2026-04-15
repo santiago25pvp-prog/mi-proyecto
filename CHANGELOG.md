@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.12.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.11.2...v1.12.0) (2026-04-15)
+
+
+### Features
+
+* add deterministic rag evaluation harness ([7d560f9](https://github.com/santiago25pvp-prog/mi-proyecto/commit/7d560f9fb2c9a154a3172475e99fd31567007bdc))
+* add deterministic rag evaluation harness ([72feea5](https://github.com/santiago25pvp-prog/mi-proyecto/commit/72feea52bb158a95d88ba39c3c7de536e7ec6e9a))
+
+
+### Bug Fixes
+
+* address PR review feedback on eval-rag harness ([4b6b451](https://github.com/santiago25pvp-prog/mi-proyecto/commit/4b6b451d6883cd5e98f6c6232d11a4f3029d7c22))
+
 ## [1.11.2](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.11.1...v1.11.2) (2026-04-13)
 
 
