@@ -49,6 +49,16 @@ function normalizeText(value: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function matchesKeyword(normalizedAnswer: string, keyword: string): boolean {
+  const normalized = normalizeText(keyword);
+  const pattern = new RegExp(`\\b${escapeRegex(normalized)}\\b`);
+  return pattern.test(normalizedAnswer);
+}
+
 function getCaseId(testCase: RagEvalCase, index: number): string {
   return testCase.id?.trim() || `case-${index + 1}`;
 }
@@ -69,11 +79,24 @@ function validateDataset(dataset: RagEvalDataset): void {
     if (!Array.isArray(testCase.expectedKeywords) || testCase.expectedKeywords.length === 0) {
       throw new Error(`Case ${index + 1} must include at least one "expectedKeywords" value.`);
     }
-    if (typeof testCase.minimumKeywordCoverage !== 'number') {
-      throw new Error(`Case ${index + 1} is missing "minimumKeywordCoverage".`);
+    testCase.expectedKeywords.forEach((keyword, kwIndex) => {
+      if (typeof keyword !== 'string' || keyword.trim() === '') {
+        throw new Error(
+          `Case ${index + 1} expectedKeywords[${kwIndex}] must be a non-empty string.`
+        );
+      }
+    });
+    if (
+      !Number.isFinite(testCase.minimumKeywordCoverage) ||
+      testCase.minimumKeywordCoverage < 0 ||
+      testCase.minimumKeywordCoverage > 1
+    ) {
+      throw new Error(
+        `Case ${index + 1} "minimumKeywordCoverage" must be a number between 0 and 1.`
+      );
     }
-    if (typeof testCase.minimumSources !== 'number') {
-      throw new Error(`Case ${index + 1} is missing "minimumSources".`);
+    if (!Number.isInteger(testCase.minimumSources) || testCase.minimumSources < 0) {
+      throw new Error(`Case ${index + 1} "minimumSources" must be a non-negative integer.`);
     }
   });
 }
@@ -106,7 +129,7 @@ async function run(): Promise<void> {
     const answerText = normalizeText(response.answer || '');
 
     const matchedKeywords = testCase.expectedKeywords.filter((keyword) =>
-      answerText.includes(normalizeText(keyword))
+      matchesKeyword(answerText, keyword)
     );
 
     const keywordCoverage = matchedKeywords.length / testCase.expectedKeywords.length;
@@ -131,7 +154,7 @@ async function run(): Promise<void> {
   const retrievalHitRate = results.filter((result) => result.sourcesCount > 0).length / totalCases;
   const avgKeywordCoverage = results.reduce((sum, result) => sum + result.keywordCoverage, 0) / totalCases;
 
-  console.log('=== RAG Evaluation (MVP deterministic) ===');
+  console.log('=== RAG Evaluation (metrics-based) ===');
   console.log(`Dataset: ${resolve(datasetPath)}`);
   if (dataset.description) {
     console.log(`Description: ${dataset.description}`);

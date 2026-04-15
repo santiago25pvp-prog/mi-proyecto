@@ -45,9 +45,9 @@
   - `npm test`
   - `npm run test:e2e`
 
-### RAG Evaluation (MVP Deterministic)
+### RAG Evaluation (Metrics-Based)
 
-- Run the deterministic harness with the bundled sample dataset:
+- Run the evaluation harness with the bundled sample dataset:
 
 ```bash
 npm run rag:eval
@@ -63,7 +63,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
   - `RAG_EVAL_DATASET`: dataset path (same behavior as `--dataset`).
   - `RAG_EVAL_MIN_PASS_RATE`: overall pass-rate threshold from `0` to `1`.
 
-- Per-case deterministic checks:
+- Per-case heuristic checks:
   - `keyword coverage`: matched `expectedKeywords` in the answer divided by total expected keywords.
   - `sources count`: number of returned sources against `minimumSources`.
   - Case passes only if both thresholds pass.
