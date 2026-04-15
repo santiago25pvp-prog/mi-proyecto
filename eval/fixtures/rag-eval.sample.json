@@ -1,0 +1,20 @@
+{
+  "description": "Small deterministic RAG evaluation sample",
+  "overallMinimumPassRate": 0.5,
+  "cases": [
+    {
+      "id": "ai-definition",
+      "query": "Que es la inteligencia artificial?",
+      "expectedKeywords": ["inteligencia", "artificial"],
+      "minimumKeywordCoverage": 0.5,
+      "minimumSources": 1
+    },
+    {
+      "id": "learning-reference",
+      "query": "Explicame el aprendizaje automatico en pocas palabras",
+      "expectedKeywords": ["aprendizaje", "automatico"],
+      "minimumKeywordCoverage": 0.5,
+      "minimumSources": 1
+    }
+  ]
+}
