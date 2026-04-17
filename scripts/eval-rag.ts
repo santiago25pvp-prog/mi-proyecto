@@ -29,6 +29,8 @@ interface CaseResult {
   passed: boolean;
 }
 
+const LIVE_LANE_LABEL = 'live-non-blocking';
+
 const DEFAULT_DATASET_PATH = 'eval/fixtures/rag-eval.sample.json';
 
 function parseDatasetArg(): string | undefined {
@@ -155,6 +157,7 @@ async function run(): Promise<void> {
   const avgKeywordCoverage = results.reduce((sum, result) => sum + result.keywordCoverage, 0) / totalCases;
 
   console.log('=== RAG Evaluation (metrics-based) ===');
+  console.log(`Lane: ${LIVE_LANE_LABEL}`);
   console.log(`Dataset: ${resolve(datasetPath)}`);
   if (dataset.description) {
     console.log(`Description: ${dataset.description}`);
@@ -178,6 +181,7 @@ async function run(): Promise<void> {
   console.log(`Pass rate: ${asPercentage(passRate)} (minimum ${asPercentage(overallMinimumPassRate)})`);
   console.log(`Retrieval hit rate: ${asPercentage(retrievalHitRate)}`);
   console.log(`Average keyword coverage: ${asPercentage(avgKeywordCoverage)}`);
+  console.log(`Reliability signal mode: ${LIVE_LANE_LABEL} (operational, non-blocking)`);
 
   if (passRate < overallMinimumPassRate) {
     console.error('Result: FAILED overall threshold.');

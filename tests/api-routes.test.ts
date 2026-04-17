@@ -483,6 +483,18 @@ test('cors configuration hardening', async (t) => {
 });
 
 test('/query route responses', async (t) => {
+  const originalDegradedFlag = process.env.RAG_DEGRADED_CONTRACT_ENABLED;
+  t.after(() => {
+    if (originalDegradedFlag === undefined) {
+      delete process.env.RAG_DEGRADED_CONTRACT_ENABLED;
+      return;
+    }
+
+    process.env.RAG_DEGRADED_CONTRACT_ENABLED = originalDegradedFlag;
+  });
+
+  process.env.RAG_DEGRADED_CONTRACT_ENABLED = 'true';
+
   await t.test('returns 400 when query is missing', async () => {
     const restores = [
       mockGetUser(async () => ({
@@ -591,6 +603,119 @@ test('/query route responses', async (t) => {
       assertResponseWithRequestId(payload, {
         error: 'Internal Server Error',
       });
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
+  await t.test('returns 503 degraded contract when transient retries are exhausted', async () => {
+    const reliability = require('../services/rag-reliability') as typeof import('../services/rag-reliability');
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('query-degraded') },
+        error: null,
+      })),
+      mockExecuteRagQuery(async () => {
+        throw new reliability.RagReliabilityError('Provider temporarily unavailable after retries', {
+          errorClass: 'TRANSIENT_EXHAUSTED',
+          code: reliability.DEGRADED_CODE,
+          retryable: true,
+          degraded: true,
+          retryAfterMs: 900,
+          status: 503,
+        });
+      }),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postJson(baseUrl, '/query', { query: 'degraded' }, 'query-degraded-token');
+      const payload = await response.json();
+
+      assert.equal(response.status, 503);
+      assert.equal(payload.code, 'UPSTREAM_TEMPORARY_UNAVAILABLE');
+      assert.equal(payload.degraded, true);
+      assert.equal(payload.retryable, true);
+      assert.equal(payload.retryAfterMs, 900);
+      assert.equal(typeof payload.error, 'string');
+      assert.equal(typeof payload.requestId, 'string');
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
+  await t.test('returns terminal provider mapping without degraded semantics', async () => {
+    const reliability = require('../services/rag-reliability') as typeof import('../services/rag-reliability');
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('query-terminal') },
+        error: null,
+      })),
+      mockExecuteRagQuery(async () => {
+        throw new reliability.RagReliabilityError('Terminal provider error', {
+          errorClass: 'TERMINAL_PROVIDER',
+          retryable: false,
+          degraded: false,
+          status: 502,
+        });
+      }),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postJson(baseUrl, '/query', { query: 'terminal' }, 'query-terminal-token');
+      const payload = await response.json();
+
+      assert.equal(response.status, 502);
+      assert.equal(payload.degraded, false);
+      assert.equal(payload.retryable, false);
+      assert.equal(payload.code, undefined);
+      assert.equal(typeof payload.error, 'string');
+      assert.equal(typeof payload.requestId, 'string');
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
+  await t.test('returns fallback degraded payload shape when executeRagQuery returns reliability metadata', async () => {
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('query-degraded-mapped') },
+        error: null,
+      })),
+      mockExecuteRagQuery(async () => ({
+        answer: 'fallback',
+        sources: [],
+        reliability: {
+          code: 'UPSTREAM_TEMPORARY_UNAVAILABLE',
+          degraded: true,
+          retryable: true,
+          retryAfterMs: 650,
+          fallbackServed: true,
+        },
+      })),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postJson(baseUrl, '/query', { query: 'degraded map' }, 'query-degraded-mapped-token');
+      const payload = await response.json();
+
+      assert.equal(response.status, 503);
+      assert.equal(payload.answer, 'fallback');
+      assert.deepEqual(payload.sources, []);
+      assert.equal(payload.code, 'UPSTREAM_TEMPORARY_UNAVAILABLE');
+      assert.equal(payload.degraded, true);
+      assert.equal(payload.retryable, true);
+      assert.equal(payload.retryAfterMs, 650);
+      assert.equal(typeof payload.error, 'string');
+      assert.equal(typeof payload.requestId, 'string');
     } finally {
       restoreAll(restores);
       await stopServer(server);

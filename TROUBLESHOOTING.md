@@ -50,6 +50,21 @@ This guide covers common failures in ingestion, embeddings, retrieval, frontend 
 - Validate query phrasing and use domain-specific terms used in the source material.
 - Run `npm run rag:eval` to measure retrieval hit rate and keyword coverage.
 
+## 3.1) RAG Reliability Incidents
+
+### Symptom: `/query` returns `503` with degraded metadata
+
+- Confirm payload includes `code=UPSTREAM_TEMPORARY_UNAVAILABLE`, `degraded=true`, `retryable=true` and `retryAfterMs`.
+- Correlate request with `requestId` and inspect reliability events: `rag_provider_retry`, `rag_provider_retry_exhausted`, `rag_query_degraded_response`.
+- If outage is transient, keep fallback disabled by default and retry after `retryAfterMs`.
+- If degraded rate remains high, follow runbook escalation in `docs/runbooks/rag-reliability.md`.
+
+### Symptom: Terminal provider errors should not look degraded
+
+- Check responses for `degraded=false` and `retryable=false`.
+- Validate provider credentials/model configuration before changing retry policy flags.
+- Ensure `RAG_FALLBACK_ON_TRANSIENT_ENABLED` is not masking terminal conditions.
+
 ## 4) Frontend Issues
 
 ### Symptom: Frontend cannot connect to backend
@@ -88,3 +103,4 @@ This guide covers common failures in ingestion, embeddings, retrieval, frontend 
 - Frontend typecheck/tests/build/audit pass in `frontend`.
 - E2E smoke passes with Playwright.
 - `npm run rag:eval` completes or has documented external-service failure evidence.
+- `npm run rag:eval:deterministic` passes locally (no external dependencies).

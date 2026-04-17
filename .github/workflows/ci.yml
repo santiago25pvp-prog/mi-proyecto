@@ -29,6 +29,8 @@ jobs:
         run: npx tsc --noEmit
       - name: Run backend tests
         run: npm test
+      - name: Run deterministic RAG reliability lane
+        run: npm run rag:eval:deterministic
       - name: Build backend
         run: npm run build
   frontend-build:

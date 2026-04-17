@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
+import { getReliabilityFlags } from '../services/ai';
 import logger from '../services/logger';
+import { DEGRADED_CODE, isRagReliabilityError } from '../services/rag-reliability';
 import { isHttpError } from './httpError';
 import { getRequestId } from './requestId';
 
@@ -10,6 +12,7 @@ export function notFoundHandler(req: Request, res: Response) {
 
 export function errorMiddleware(error: unknown, req: Request, res: Response, next: NextFunction) {
   const requestId = getRequestId(res);
+  const flags = getReliabilityFlags();
 
   if (res.headersSent) {
     return next(error);
@@ -21,6 +24,48 @@ export function errorMiddleware(error: unknown, req: Request, res: Response, nex
       requestId,
       ...(error.details ? { details: error.details } : {}),
     });
+  }
+
+  if (isRagReliabilityError(error)) {
+    if (error.errorClass === 'TRANSIENT_EXHAUSTED') {
+      if (!flags.degradedContractEnabled) {
+        return res.status(500).json({ error: 'Internal Server Error', requestId });
+      }
+
+      logger.warn('rag_query_degraded_response', {
+        requestId,
+        code: DEGRADED_CODE,
+        retryAfterMs: error.retryAfterMs ?? 300,
+        fallbackServed: false,
+      });
+
+      return res.status(503).json({
+        error: error.message,
+        requestId,
+        code: DEGRADED_CODE,
+        degraded: true,
+        retryable: true,
+        retryAfterMs: error.retryAfterMs ?? 300,
+      });
+    }
+
+    if (error.errorClass === 'TERMINAL_PROVIDER') {
+      return res.status(error.status ?? 502).json({
+        error: error.message,
+        requestId,
+        degraded: false,
+        retryable: false,
+      });
+    }
+
+    if (error.errorClass === 'TERMINAL_REQUEST') {
+      return res.status(error.status ?? 400).json({
+        error: error.message,
+        requestId,
+        degraded: false,
+        retryable: false,
+      });
+    }
   }
 
   logger.error('unhandled_request_error', {

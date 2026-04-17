@@ -1,5 +1,10 @@
 import { searchDocuments } from './retrieval';
-import { generateAnswer } from './ai';
+import { generateAnswerWithReliability, getReliabilityFlags } from './ai';
+import logger from './logger';
+import {
+  DEGRADED_CODE,
+  isRagReliabilityError,
+} from './rag-reliability';
 import { VectorStore } from './vector-store.interface';
 
 interface RagQueryResponse {
@@ -8,7 +13,21 @@ interface RagQueryResponse {
         name: string;
         content: string;
     }>;
+    reliability?: {
+        code: typeof DEGRADED_CODE;
+        degraded: true;
+        retryable: true;
+        retryAfterMs: number;
+        fallbackServed: boolean;
+    };
 }
+
+interface ExecuteRagQueryOptions {
+    requestId?: string;
+}
+
+const DEFAULT_TRANSIENT_FALLBACK_MESSAGE =
+    'El proveedor de IA está temporalmente inestable. Mostramos una respuesta degradada y te sugerimos reintentar en breve.';
 
 function getDocumentContent(result: any): string {
     return result?.document?.content ?? result?.content ?? result?.text ?? '';
@@ -18,7 +37,14 @@ function getDocumentName(result: any): string {
     return result?.document?.name ?? result?.name ?? result?.title ?? 'Documento';
 }
 
-export const executeRagQuery = async (vectorStore: VectorStore, query: string): Promise<RagQueryResponse> => {
+export const executeRagQuery = async (
+    vectorStore: VectorStore,
+    query: string,
+    options: ExecuteRagQueryOptions = {},
+): Promise<RagQueryResponse> => {
+    const requestId = options.requestId;
+    const flags = getReliabilityFlags();
+
     // 1. Search documents in vector DB
     const searchResults = await searchDocuments(vectorStore, query, 5);
     
@@ -36,7 +62,39 @@ export const executeRagQuery = async (vectorStore: VectorStore, query: string): 
         .join('\n\n');
 
     // 3. Generate answer with AI
-    const answer = await generateAnswer(context, query);
+    let answer = '';
+    let reliability: RagQueryResponse['reliability'];
+
+    try {
+        const generated = await generateAnswerWithReliability(context, query, { requestId, flags });
+        answer = generated.answer;
+    } catch (error) {
+        if (
+            isRagReliabilityError(error)
+            && error.errorClass === 'TRANSIENT_EXHAUSTED'
+            && flags.fallbackOnTransientEnabled
+        ) {
+            const retryAfterMs = error.retryAfterMs ?? 300;
+
+            logger.warn('rag_query_fallback_served', {
+                requestId,
+                reason: 'transient_provider_exhausted',
+                policyFlag: 'RAG_FALLBACK_ON_TRANSIENT_ENABLED',
+                retryAfterMs,
+            });
+
+            answer = DEFAULT_TRANSIENT_FALLBACK_MESSAGE;
+            reliability = {
+                code: DEGRADED_CODE,
+                degraded: true,
+                retryable: true,
+                retryAfterMs,
+                fallbackServed: true,
+            };
+        } else {
+            throw error;
+        }
+    }
 
     // 4. Format sources
     const sources = searchResults.map(result => ({
@@ -44,5 +102,18 @@ export const executeRagQuery = async (vectorStore: VectorStore, query: string): 
         content: getDocumentContent(result)
     }));
 
-    return { answer, sources };
+    if (reliability) {
+        logger.warn('rag_query_degraded_response', {
+            requestId,
+            code: reliability.code,
+            retryAfterMs: reliability.retryAfterMs,
+            fallbackServed: reliability.fallbackServed,
+        });
+    }
+
+    return {
+        answer,
+        sources: reliability ? [] : sources,
+        ...(reliability ? { reliability } : {}),
+    };
 }

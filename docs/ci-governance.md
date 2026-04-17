@@ -10,6 +10,14 @@ Keep `main` merge protection aligned with real CI check names so required checks
 - `Frontend Build`
 - `Frontend E2E Smoke`
 
+### RAG Reliability Lane Governance
+
+- Deterministic reliability lane: `npm run rag:eval:deterministic`.
+- This lane is intended as blocking/reproducible evidence for reliability contract behavior.
+- Live external lane: `npm run rag:eval`.
+- Live lane remains operational signal (`live-non-blocking`) because provider availability can be non-deterministic.
+- Keep existing required CI check names unchanged; reliability lanes are governed as script-level policy and PR evidence.
+
 ## Check-Name Drift: What it is
 
 Check-name drift happens when a GitHub Actions job `name` changes in workflow YAML, but branch protection still requires the old name. This can block merges (required check never appears) or leave a gap (wrong check required).

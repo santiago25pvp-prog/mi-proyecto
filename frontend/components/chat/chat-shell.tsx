@@ -33,6 +33,7 @@ export function ChatShell() {
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
+  const [degradedHint, setDegradedHint] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const storageKey = getChatStorageKey(user?.id);
 
@@ -92,6 +93,7 @@ export function ChatShell() {
     setInput("");
     setError(null);
     setErrorRequestId(null);
+    setDegradedHint(null);
     setPending(true);
 
     try {
@@ -112,15 +114,21 @@ export function ChatShell() {
       setMessages((current) => [...current, assistantMessage]);
       setActiveMessageId(assistantMessage.id);
     } catch (submitError) {
-      const { message, requestId } = getBackendErrorInfo(
+      const { message, requestId, metadata } = getBackendErrorInfo(
         submitError,
         "No se pudo completar la consulta.",
       );
+
+      const reliabilityHint =
+        metadata.degraded && metadata.retryable
+          ? `Modo degradado activo${metadata.retryAfterMs ? `, reintentá en ${metadata.retryAfterMs}ms.` : "."}`
+          : null;
 
       setMessages((current) => removeMessageById(current, userMessage.id));
       setInput(prompt);
       setError(message);
       setErrorRequestId(requestId);
+      setDegradedHint(reliabilityHint);
       toast.error(requestId ? `${message} (Reference ID: ${requestId})` : message);
     } finally {
       setPending(false);
@@ -317,6 +325,12 @@ export function ChatShell() {
           {errorRequestId ? (
             <p className="mt-1 text-xs text-white/65" role="note">
               Reference ID: {errorRequestId}
+            </p>
+          ) : null}
+
+          {degradedHint ? (
+            <p className="mt-1 text-xs text-amber-300" role="note">
+              {degradedHint}
             </p>
           ) : null}
 

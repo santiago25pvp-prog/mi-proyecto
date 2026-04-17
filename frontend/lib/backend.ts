@@ -5,6 +5,7 @@ import type {
   DeleteDocumentResponse,
   IngestResponse,
 } from "@/lib/types";
+import type { BackendErrorMetadata } from "@/lib/types";
 import { readFrontendPublicEnv, resolveApiUrl } from "./env";
 
 const API_URL = resolveApiUrl(readFrontendPublicEnv());
@@ -12,23 +13,40 @@ const API_URL = resolveApiUrl(readFrontendPublicEnv());
 type ErrorPayload = {
   error?: unknown;
   requestId?: unknown;
+  code?: unknown;
+  degraded?: unknown;
+  retryable?: unknown;
+  retryAfterMs?: unknown;
 };
 
 export class BackendApiError extends Error {
   requestId: string | null;
   status: number;
+  metadata: BackendErrorMetadata;
 
-  constructor(message: string, status: number, requestId: string | null = null) {
+  constructor(
+    message: string,
+    status: number,
+    requestId: string | null = null,
+    metadata: BackendErrorMetadata = {
+      code: null,
+      degraded: false,
+      retryable: false,
+      retryAfterMs: null,
+    },
+  ) {
     super(message);
     this.name = "BackendApiError";
     this.status = status;
     this.requestId = requestId;
+    this.metadata = metadata;
   }
 }
 
 export type BackendErrorInfo = {
   message: string;
   requestId: string | null;
+  metadata: BackendErrorMetadata;
 };
 
 export function getBackendErrorInfo(
@@ -38,8 +56,17 @@ export function getBackendErrorInfo(
   const message = error instanceof Error ? error.message : fallbackMessage;
   const requestId =
     error instanceof BackendApiError && error.requestId ? error.requestId : null;
+  const metadata =
+    error instanceof BackendApiError
+      ? error.metadata
+      : {
+          code: null,
+          degraded: false,
+          retryable: false,
+          retryAfterMs: null,
+        };
 
-  return { message, requestId };
+  return { message, requestId, metadata };
 }
 
 async function request<T>(
@@ -78,8 +105,17 @@ async function request<T>(
       payloadObject && typeof payloadObject.requestId === "string"
         ? payloadObject.requestId
         : null;
+    const metadata: BackendErrorMetadata = {
+      code: payloadObject && typeof payloadObject.code === "string" ? payloadObject.code : null,
+      degraded: payloadObject?.degraded === true,
+      retryable: payloadObject?.retryable === true,
+      retryAfterMs:
+        payloadObject && typeof payloadObject.retryAfterMs === "number"
+          ? payloadObject.retryAfterMs
+          : null,
+    };
 
-    throw new BackendApiError(message, response.status, requestId);
+    throw new BackendApiError(message, response.status, requestId, metadata);
   }
 
   return payload as T;

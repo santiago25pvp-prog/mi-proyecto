@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import logger from '../services/logger';
+import { getReliabilityFlags } from '../services/ai';
 import { ingestUrl } from '../services/ingestion';
 import { executeRagQuery } from '../services/rag';
 import { SupabaseVectorAdapter } from '../services/supabase-vector-adapter';
@@ -45,10 +46,33 @@ export const queryHandler = async (req: Request, res: Response) => {
   const requestId = getRequestId(res);
   const { body } = getValidatedRequest(res);
   const query = body.query as string;
+  const flags = getReliabilityFlags();
 
   logger.info('query_request_started', { requestId, queryLength: query.length });
 
-  const result = await executeRagQuery(vectorStore, query);
+  const result = await executeRagQuery(vectorStore, query, { requestId });
+
+  if (result.reliability?.degraded && flags.degradedContractEnabled) {
+    logger.warn('query_request_degraded', {
+      requestId,
+      code: result.reliability.code,
+      retryAfterMs: result.reliability.retryAfterMs,
+      fallbackServed: result.reliability.fallbackServed,
+    });
+
+    res.status(503).json({
+      answer: result.answer,
+      sources: result.sources,
+      requestId,
+      code: result.reliability.code,
+      degraded: true,
+      retryable: true,
+      retryAfterMs: result.reliability.retryAfterMs,
+      error: 'Provider temporarily unavailable',
+    });
+    return;
+  }
+
   logger.info('query_request_completed', { requestId, sourcesCount: result.sources.length });
   res.json({ ...result, requestId });
 };

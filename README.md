@@ -16,6 +16,7 @@
 ### Unified API
 
 - `POST /query` receives `query` and returns JSON in this format: `{ "requestId": string, "answer": string, "sources": [] }`.
+- During transient provider exhaustion, `POST /query` returns `503` with additive compatibility fields: `code`, `degraded`, `retryable`, `retryAfterMs`, while preserving `error` and `requestId`.
 - `POST /ingest` exposes the document ingestion pipeline and reports successful and failed insertions.
 - Administrative endpoints allow listing documents, deleting documents, and checking stats.
 
@@ -69,6 +70,12 @@
 npm run rag:eval
 ```
 
+- Run deterministic reliability assertions (blocking lane candidate, no network):
+
+```bash
+npm run rag:eval:deterministic
+```
+
 - Use a custom dataset file:
 
 ```bash
@@ -78,6 +85,10 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 - Optional env overrides:
   - `RAG_EVAL_DATASET`: dataset path (same behavior as `--dataset`).
   - `RAG_EVAL_MIN_PASS_RATE`: overall pass-rate threshold from `0` to `1`.
+
+- Lane governance:
+  - `rag:eval:deterministic`: deterministic and reproducible lane for contract/policy assertions.
+  - `rag:eval`: live external lane, operational signal only (`live-non-blocking`).
 
 - Per-case heuristic checks:
   - `keyword coverage`: matched `expectedKeywords` in the answer divided by total expected keywords.

@@ -10,6 +10,17 @@ export interface ApiResponseMeta {
 export interface ChatResponse extends ApiResponseMeta {
   answer: string;
   sources: ChatSource[];
+  code?: string;
+  degraded?: boolean;
+  retryable?: boolean;
+  retryAfterMs?: number;
+}
+
+export interface BackendErrorMetadata {
+  code: string | null;
+  degraded: boolean;
+  retryable: boolean;
+  retryAfterMs: number | null;
 }
 
 export interface ChatMessage {
