@@ -45,6 +45,10 @@
   - `npm test`
   - `npm run test:e2e`
 
+### Troubleshooting
+
+- For common ingestion, embedding, retrieval, frontend, and deployment issues, see [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md).
+
 ### Merge Policy / Required Checks
 
 - Pull requests into `main` must pass these required checks:
