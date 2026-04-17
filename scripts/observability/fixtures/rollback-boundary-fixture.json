@@ -1,0 +1,34 @@
+{
+  "validPlan": {
+    "telemetry": {
+      "source": "logs",
+      "preserveDegradedSemantics": true,
+      "preserveRequestIdCorrelation": true,
+      "preserveStructuralEventIntegrity": true
+    },
+    "alerts": {
+      "warningEnabled": true,
+      "criticalEnabled": true
+    },
+    "governance": {
+      "structuralBlockingEnabled": true,
+      "operationalAdvisoryEnabled": true
+    }
+  },
+  "invalidPlan": {
+    "telemetry": {
+      "source": "metrics",
+      "preserveDegradedSemantics": false,
+      "preserveRequestIdCorrelation": false,
+      "preserveStructuralEventIntegrity": false
+    },
+    "alerts": {
+      "warningEnabled": true,
+      "criticalEnabled": false
+    },
+    "governance": {
+      "structuralBlockingEnabled": false,
+      "operationalAdvisoryEnabled": true
+    }
+  }
+}

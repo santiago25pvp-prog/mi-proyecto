@@ -31,8 +31,16 @@ Availability/degraded/retry envelopes follow warning + critical thresholds; warn
 
 - Current primary source: `logs`
 - Promotion to explicit metrics requires parity evidence for one release cycle and no unresolved telemetry integrity defects.
+- Enforceable promotion checks are codified in `services/observability/promotion-gate.ts` and exercised by `npm run observability:check:promotion`.
+- Deterministic parity fixtures are versioned in `scripts/observability/fixtures/phase-b-promotion-fixture.json`.
 
 ## Correlation Contract
 
 - Every enforcement signal must be traceable through `requestId`.
 - Frontend telemetry scope remains minimal: degraded render events with `requestId` only.
+
+## Rollback Boundary Contract
+
+- Rollback plans must preserve `degraded` semantics, `requestId` correlation, and structural event integrity.
+- Guardrails are mechanized in `services/observability/rollback-guard.ts` and checked by `npm run observability:check:rollback-boundary`.
+- Deterministic rollback fixtures are versioned in `scripts/observability/fixtures/rollback-boundary-fixture.json`.

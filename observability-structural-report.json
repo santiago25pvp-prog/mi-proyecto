@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-17T19:34:37.796Z",
+  "generatedAt": "2026-04-17T20:00:19.275Z",
   "status": "pass",
   "results": [
     {
@@ -21,6 +21,21 @@
       "check": "doc_reference_integrity",
       "pass": true,
       "details": "ownership and policy docs must exist"
+    },
+    {
+      "check": "phase_b_promotion_enforceability",
+      "pass": true,
+      "details": "advisory candidate can be promoted"
+    },
+    {
+      "check": "rollback_boundary_enforcement",
+      "pass": true,
+      "details": "rollback boundaries preserved"
+    },
+    {
+      "check": "manual_signoff_evidence_artifacts",
+      "pass": true,
+      "details": "T11/T12 versioned evidence artifacts must exist"
     }
   ]
 }

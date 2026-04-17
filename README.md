@@ -41,6 +41,10 @@
 - Backend:
   - `npx tsc --noEmit`
   - `npm run test:backend`
+  - `npm run observability:check:structural`
+  - `npm run observability:check:operational`
+  - `npm run observability:check:promotion`
+  - `npm run observability:check:rollback-boundary`
 - Frontend (inside `frontend`):
   - `npx tsc --noEmit`
   - `npm test`
@@ -89,6 +93,14 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 - Lane governance:
   - `rag:eval:deterministic`: deterministic and reproducible lane for contract/policy assertions.
   - `rag:eval`: live external lane, operational signal only (`live-non-blocking`).
+
+### Observability Enforcement Evidence
+
+- Phase B promotion gate evidence report: `observability-promotion-report.json`.
+- Rollback boundary evidence report: `observability-rollback-report.json`.
+- Manual sign-off evidence:
+  - `docs/observability/signoff-t11-policy-decisions.md`
+  - `docs/observability/signoff-t12-drill-evidence.md`
 
 - Per-case heuristic checks:
   - `keyword coverage`: matched `expectedKeywords` in the answer divided by total expected keywords.

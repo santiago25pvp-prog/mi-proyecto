@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-04-17T20:00:57.625Z",
+  "status": "pass",
+  "fixturePath": "scripts/observability/fixtures/rollback-boundary-fixture.json",
+  "results": [
+    {
+      "check": "valid_plan_preserves_minimum_visibility",
+      "pass": true,
+      "details": "valid rollback plan accepted"
+    },
+    {
+      "check": "invalid_plan_rejected_by_boundary_guard",
+      "pass": true,
+      "details": "rollback_boundary:degraded_semantics_must_be_preserved|rollback_boundary:request_id_correlation_must_be_preserved|rollback_boundary:structural_event_integrity_must_be_preserved|rollback_boundary:critical_coverage_must_remain_enabled|rollback_boundary:structural_blocking_gate_must_remain_enabled"
+    }
+  ],
+  "validPlan": {
+    "valid": true,
+    "errors": []
+  },
+  "invalidPlan": {
+    "valid": false,
+    "errors": [
+      "rollback_boundary:degraded_semantics_must_be_preserved",
+      "rollback_boundary:request_id_correlation_must_be_preserved",
+      "rollback_boundary:structural_event_integrity_must_be_preserved",
+      "rollback_boundary:critical_coverage_must_remain_enabled",
+      "rollback_boundary:structural_blocking_gate_must_remain_enabled"
+    ]
+  }
+}

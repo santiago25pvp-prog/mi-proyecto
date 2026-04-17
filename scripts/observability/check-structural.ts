@@ -6,6 +6,8 @@ import {
 } from '../../services/observability/event-schema';
 import { validateAlertRule } from '../../services/observability/alert-rules';
 import { computeCanonicalSlis } from '../../services/observability/sli-computation';
+import { evaluatePhaseBPromotion } from '../../services/observability/promotion-gate';
+import { validateRollbackBoundary } from '../../services/observability/rollback-guard';
 
 interface StructuralCheckResult {
   check: string;
@@ -109,6 +111,61 @@ function main(): void {
     check: 'doc_reference_integrity',
     pass: fs.existsSync(ownershipDoc) && fs.existsSync(policyDoc),
     details: 'ownership and policy docs must exist',
+  });
+
+  const promotionFixturePath = path.resolve(process.cwd(), 'scripts/observability/fixtures/phase-b-promotion-fixture.json');
+  const promotionFixture = JSON.parse(fs.readFileSync(promotionFixturePath, 'utf8')) as {
+    advisoryCandidate: Parameters<typeof evaluatePhaseBPromotion>[0];
+  };
+  const promotionEvaluation = evaluatePhaseBPromotion(promotionFixture.advisoryCandidate);
+  results.push({
+    check: 'phase_b_promotion_enforceability',
+    pass: promotionEvaluation.enforceable,
+    details: promotionEvaluation.enforceable
+      ? 'advisory candidate can be promoted'
+      : promotionEvaluation.blockingReasons.join('|'),
+  });
+
+  const rollbackFixturePath = path.resolve(process.cwd(), 'scripts/observability/fixtures/rollback-boundary-fixture.json');
+  const rollbackFixture = JSON.parse(fs.readFileSync(rollbackFixturePath, 'utf8')) as {
+    validPlan: Parameters<typeof validateRollbackBoundary>[0];
+  };
+  const rollbackBoundaryResult = validateRollbackBoundary(rollbackFixture.validPlan, [
+    createReliabilityEvent({
+      eventName: 'query_request_started',
+      requestId: 'req-rollback-1',
+      route: '/query',
+      reliability: { degraded: false },
+    }),
+    createReliabilityEvent({
+      eventName: 'query_request_completed',
+      requestId: 'req-rollback-1',
+      route: '/query',
+      reliability: { degraded: false, latencyMs: 220 },
+    }),
+    createReliabilityEvent({
+      eventName: 'query_request_degraded',
+      requestId: 'req-rollback-2',
+      route: '/query',
+      reliability: {
+        degraded: true,
+        retryable: true,
+        code: 'UPSTREAM_TEMPORARY_UNAVAILABLE',
+      },
+    }),
+  ]);
+  results.push({
+    check: 'rollback_boundary_enforcement',
+    pass: rollbackBoundaryResult.valid,
+    details: rollbackBoundaryResult.valid ? 'rollback boundaries preserved' : rollbackBoundaryResult.errors.join('|'),
+  });
+
+  const signoffT11 = path.resolve(process.cwd(), 'docs/observability/signoff-t11-policy-decisions.md');
+  const signoffT12 = path.resolve(process.cwd(), 'docs/observability/signoff-t12-drill-evidence.md');
+  results.push({
+    check: 'manual_signoff_evidence_artifacts',
+    pass: fs.existsSync(signoffT11) && fs.existsSync(signoffT12),
+    details: 'T11/T12 versioned evidence artifacts must exist',
   });
 
   writeReport(results);

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-04-17T19:34:37.563Z",
-  "status": "advisory-fail",
+  "generatedAt": "2026-04-17T20:00:35.259Z",
+  "status": "pass",
   "results": [
     {
       "check": "simulated_window_policy_evaluation",
-      "pass": false,
-      "details": "severity=critical reasons=availability_critical_breach|degraded_response_critical_breach|retry_exhaustion_critical_breach|latency_warning_breach"
+      "pass": true,
+      "details": "severity=none reasons=none"
     },
     {
       "check": "taxonomy_integrity",
@@ -14,8 +14,28 @@
     },
     {
       "check": "degraded_baseline_guardrail",
-      "pass": false,
-      "details": "degraded_rate=0.5 target<=0.02"
+      "pass": true,
+      "details": "degraded_rate=0 target<=0.02"
+    },
+    {
+      "check": "phase_b_promotion_parity_advisory",
+      "pass": true,
+      "details": "advisory candidate meets promotion criteria"
+    },
+    {
+      "check": "phase_b_promotion_guard_blocks_drift",
+      "pass": true,
+      "details": "blocked_reasons=promotion_blocked:unresolved_telemetry_integrity_defects|promotion_blocked:alert_noise_review_not_approved|promotion_blocked:parity_outside_tolerance"
+    },
+    {
+      "check": "rollback_boundary_valid_plan",
+      "pass": true,
+      "details": "valid rollback accepted"
+    },
+    {
+      "check": "rollback_boundary_rejects_invalid_plan",
+      "pass": true,
+      "details": "rollback_boundary:degraded_semantics_must_be_preserved|rollback_boundary:request_id_correlation_must_be_preserved|rollback_boundary:structural_event_integrity_must_be_preserved|rollback_boundary:critical_coverage_must_remain_enabled|rollback_boundary:structural_blocking_gate_must_remain_enabled"
     }
   ]
 }

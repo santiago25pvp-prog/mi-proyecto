@@ -22,9 +22,17 @@ Keep `main` merge protection aligned with real CI check names so required checks
 
 - Blocking structural lane: `npm run observability:check:structural`.
 - Structural lane must fail CI when schema/formula/ownership/runbook reference integrity checks fail.
+- Structural lane also enforces Phase B promotion readiness and rollback boundary requirements via deterministic fixtures.
 - Advisory operational lane: `npm run observability:check:operational`.
 - Operational lane is non-blocking and reports drift/noise concerns with follow-up tracking in PR notes.
 - Required GitHub check names remain unchanged (`Backend Typecheck, Tests & Build`, `Frontend Build`, `Frontend E2E Smoke`).
+
+### Manual Sign-off Evidence Policy (T11/T12)
+
+- Required evidence artifacts must be versioned in repo:
+  - `docs/observability/signoff-t11-policy-decisions.md`
+  - `docs/observability/signoff-t12-drill-evidence.md`
+- Structural check `manual_signoff_evidence_artifacts` fails if those artifacts are missing.
 
 ## Check-Name Drift: What it is
 

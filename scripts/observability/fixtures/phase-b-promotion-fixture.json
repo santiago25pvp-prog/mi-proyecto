@@ -1,0 +1,115 @@
+{
+  "policy": {
+    "minReleaseCycles": 1,
+    "ratioToleranceAbsDelta": 0.002,
+    "latencyToleranceMsAbsDelta": 150
+  },
+  "advisoryCandidate": {
+    "mode": "advisory",
+    "releaseCyclesObserved": 1,
+    "unresolvedTelemetryIntegrityDefects": 0,
+    "alertNoiseReviewApproved": true,
+    "windows": [
+      {
+        "id": "release-2026.04.17-window-1",
+        "logDerived": {
+          "formulaVersion": "v1",
+          "window": {
+            "startedAt": "2026-04-17T00:00:00.000Z",
+            "endedAt": "2026-04-17T01:00:00.000Z"
+          },
+          "eligibleQueryRequests": 1000,
+          "successfulNonDegraded": {
+            "value": 0.996,
+            "numerator": 996,
+            "denominator": 1000,
+            "invalidForEnforcement": false
+          },
+          "degradedResponses": {
+            "value": 0.015,
+            "numerator": 15,
+            "denominator": 1000,
+            "invalidForEnforcement": false
+          },
+          "retryExhaustedProviderCalls": {
+            "value": 0.004,
+            "numerator": 4,
+            "denominator": 1000,
+            "invalidForEnforcement": false
+          },
+          "p95LatencyMs": {
+            "value": 2890,
+            "invalidForEnforcement": false
+          },
+          "classifiedReliabilityErrors": {
+            "total": 5,
+            "byCode": {
+              "UPSTREAM_TEMPORARY_UNAVAILABLE": 5
+            }
+          },
+          "integrityFailures": []
+        },
+        "explicitMetrics": {
+          "availability": 0.9965,
+          "degradedResponseRate": 0.0157,
+          "retryExhaustionRate": 0.0039,
+          "p95LatencyMs": 2940
+        }
+      }
+    ]
+  },
+  "failingCandidate": {
+    "mode": "enforced",
+    "releaseCyclesObserved": 1,
+    "unresolvedTelemetryIntegrityDefects": 1,
+    "alertNoiseReviewApproved": false,
+    "windows": [
+      {
+        "id": "release-2026.04.17-window-2",
+        "logDerived": {
+          "formulaVersion": "v1",
+          "window": {
+            "startedAt": "2026-04-17T01:00:00.000Z",
+            "endedAt": "2026-04-17T02:00:00.000Z"
+          },
+          "eligibleQueryRequests": 1000,
+          "successfulNonDegraded": {
+            "value": 0.995,
+            "numerator": 995,
+            "denominator": 1000,
+            "invalidForEnforcement": false
+          },
+          "degradedResponses": {
+            "value": 0.018,
+            "numerator": 18,
+            "denominator": 1000,
+            "invalidForEnforcement": false
+          },
+          "retryExhaustedProviderCalls": {
+            "value": 0.004,
+            "numerator": 4,
+            "denominator": 1000,
+            "invalidForEnforcement": false
+          },
+          "p95LatencyMs": {
+            "value": 2960,
+            "invalidForEnforcement": false
+          },
+          "classifiedReliabilityErrors": {
+            "total": 2,
+            "byCode": {
+              "UPSTREAM_TEMPORARY_UNAVAILABLE": 2
+            }
+          },
+          "integrityFailures": []
+        },
+        "explicitMetrics": {
+          "availability": 0.991,
+          "degradedResponseRate": 0.026,
+          "retryExhaustionRate": 0.0085,
+          "p95LatencyMs": 3250
+        }
+      }
+    ]
+  }
+}

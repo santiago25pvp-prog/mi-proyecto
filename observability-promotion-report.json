@@ -1,0 +1,74 @@
+{
+  "generatedAt": "2026-04-17T20:00:49.713Z",
+  "policy": {
+    "minReleaseCycles": 1,
+    "ratioToleranceAbsDelta": 0.002,
+    "latencyToleranceMsAbsDelta": 150
+  },
+  "status": "pass",
+  "advisoryEvaluation": {
+    "mode": "advisory",
+    "enforceable": true,
+    "promoted": true,
+    "blockingReasons": [],
+    "parityByWindow": [
+      {
+        "windowId": "release-2026.04.17-window-1",
+        "checks": {
+          "availability": true,
+          "degradedResponseRate": true,
+          "retryExhaustionRate": true,
+          "p95LatencyMs": true
+        },
+        "deltas": {
+          "availability": 0.000500000000000056,
+          "degradedResponseRate": 0.0006999999999999992,
+          "retryExhaustionRate": 0.00010000000000000026,
+          "p95LatencyMs": 50
+        },
+        "pass": true
+      }
+    ]
+  },
+  "failingEvaluation": {
+    "mode": "enforced",
+    "enforceable": false,
+    "promoted": false,
+    "blockingReasons": [
+      "promotion_blocked:unresolved_telemetry_integrity_defects",
+      "promotion_blocked:alert_noise_review_not_approved",
+      "promotion_blocked:parity_outside_tolerance"
+    ],
+    "parityByWindow": [
+      {
+        "windowId": "release-2026.04.17-window-2",
+        "checks": {
+          "availability": false,
+          "degradedResponseRate": false,
+          "retryExhaustionRate": false,
+          "p95LatencyMs": false
+        },
+        "deltas": {
+          "availability": 0.0040000000000000036,
+          "degradedResponseRate": 0.008,
+          "retryExhaustionRate": 0.0045000000000000005,
+          "p95LatencyMs": 290
+        },
+        "pass": false
+      }
+    ]
+  },
+  "results": [
+    {
+      "check": "phase_b_advisory_candidate_enforceable",
+      "pass": true,
+      "details": "enforceable=true reasons=none"
+    },
+    {
+      "check": "phase_b_failing_candidate_blocked",
+      "pass": true,
+      "details": "enforceable=false reasons=promotion_blocked:unresolved_telemetry_integrity_defects|promotion_blocked:alert_noise_review_not_approved|promotion_blocked:parity_outside_tolerance"
+    }
+  ],
+  "fixturePath": "scripts/observability/fixtures/phase-b-promotion-fixture.json"
+}
