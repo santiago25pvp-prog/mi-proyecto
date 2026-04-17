@@ -102,7 +102,7 @@ async function withTransientRetry<T>(operation: () => Promise<T>): Promise<T> {
             const delayMs = geminiRetryDelayMs ?? INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
 
             logger.warn(
-                '[Embedding] Transient provider error. Retrying request',
+                'embedding_transient_provider_error_retrying',
                 {
                     attempt,
                     maxAttempts: MAX_RETRY_ATTEMPTS,

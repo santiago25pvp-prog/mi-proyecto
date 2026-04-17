@@ -14,16 +14,16 @@ export const ingestHandler = async (req: Request, res: Response) => {
   const { body } = getValidatedRequest(res);
   const url = body.url as string;
 
-  logger.info(`[${requestId}] Ingest request started`, { url });
+  logger.info('ingest_request_started', { requestId, url });
 
   try {
     const result = await ingestUrl(vectorStore, url);
-    logger.info(`[${requestId}] Ingest completed successfully`, { result });
+    logger.info('ingest_request_completed', { requestId, result });
     res.json({ ...result, requestId });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
-    logger.error(`[${requestId}] Ingest failed`, { error: message });
+    logger.error('ingest_request_failed', { requestId, error: message });
 
     if (message.includes('timeout')) {
       throw new HttpError('Request timeout: URL took too long to respond', 408);
@@ -46,9 +46,9 @@ export const queryHandler = async (req: Request, res: Response) => {
   const { body } = getValidatedRequest(res);
   const query = body.query as string;
 
-  logger.info(`[${requestId}] Query request started`, { queryLength: query.length });
+  logger.info('query_request_started', { requestId, queryLength: query.length });
 
   const result = await executeRagQuery(vectorStore, query);
-  logger.info(`[${requestId}] Query completed successfully`, { sourcesCount: result.sources.length });
+  logger.info('query_request_completed', { requestId, sourcesCount: result.sources.length });
   res.json({ ...result, requestId });
 };

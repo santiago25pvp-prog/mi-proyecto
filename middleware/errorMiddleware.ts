@@ -23,7 +23,8 @@ export function errorMiddleware(error: unknown, req: Request, res: Response, nex
     });
   }
 
-  logger.error(`[${requestId}] Unhandled request error`, {
+  logger.error('unhandled_request_error', {
+    requestId,
     path: req.path,
     method: req.method,
     error: error instanceof Error ? error.message : String(error),
