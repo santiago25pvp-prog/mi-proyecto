@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.15.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.14.0...v1.15.0) (2026-04-17)
+
+
+### Features
+
+* enforce observability slos with phased telemetry gates ([a61062e](https://github.com/santiago25pvp-prog/mi-proyecto/commit/a61062e2f128a848fff13b3c92cceb0b271ec524))
+
+
+### Bug Fixes
+
+* close observability verification gaps for enforcement ([6ed5518](https://github.com/santiago25pvp-prog/mi-proyecto/commit/6ed55185ff476139c57cecd4be5f23b8353cbee9))
+
 ## [1.14.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.13.0...v1.14.0) (2026-04-17)
 
 
