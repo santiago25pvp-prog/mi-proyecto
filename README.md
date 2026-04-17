@@ -436,3 +436,9 @@ Default ports:
 ## Changelog
 
 Project version and release history is in [`CHANGELOG.md`](./CHANGELOG.md).
+
+## Release Automation
+
+This repository uses Release Please to open release PRs from `main`.
+
+To ensure CI required checks run on Release Please PRs, configure a repository secret named `RELEASE_PLEASE_TOKEN` (GitHub PAT) and keep the release workflow using that token.
