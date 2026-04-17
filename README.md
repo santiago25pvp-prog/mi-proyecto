@@ -45,6 +45,8 @@
   - `npm test`
   - `npm run test:e2e`
 
+- TypeScript 6 compatibility spike report: [`docs/typescript-6-spike.md`](docs/typescript-6-spike.md)
+
 ### Troubleshooting
 
 - For common ingestion, embedding, retrieval, frontend, and deployment issues, see [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md).
