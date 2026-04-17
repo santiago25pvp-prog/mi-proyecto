@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.12.0...v1.13.0) (2026-04-17)
+
+
+### Features
+
+* expand rag evaluation dataset with edge cases ([c83e0dd](https://github.com/santiago25pvp-prog/mi-proyecto/commit/c83e0dde263516f53f349633edeefed1f2501286))
+
+
+### Bug Fixes
+
+* use dedicated token for release-please CI triggers ([ab1a033](https://github.com/santiago25pvp-prog/mi-proyecto/commit/ab1a033ac48447005d018c1e3a294669dde05a0f))
+
 ## [1.12.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.11.2...v1.12.0) (2026-04-15)
 
 
