@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.13.0...v1.14.0) (2026-04-17)
+
+
+### Features
+
+* harden rag reliability under provider outages ([df37bce](https://github.com/santiago25pvp-prog/mi-proyecto/commit/df37bceda4863280a6e1d081b00925206c07bf0e))
+
 ## [1.13.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.12.0...v1.13.0) (2026-04-17)
 
 
