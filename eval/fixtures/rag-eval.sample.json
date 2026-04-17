@@ -1,20 +1,83 @@
 {
-  "description": "Small deterministic RAG evaluation sample",
+  "description": "Expanded RAG evaluation sample with realistic edge cases",
   "overallMinimumPassRate": 0.5,
   "cases": [
     {
-      "id": "ai-definition",
+      "id": "ai-definition-baseline",
       "query": "Que es la inteligencia artificial?",
       "expectedKeywords": ["inteligencia", "artificial"],
       "minimumKeywordCoverage": 0.5,
       "minimumSources": 1
     },
     {
-      "id": "learning-reference",
+      "id": "ml-short-explanation",
       "query": "Explicame el aprendizaje automatico en pocas palabras",
       "expectedKeywords": ["aprendizaje", "automatico"],
       "minimumKeywordCoverage": 0.5,
       "minimumSources": 1
+    },
+    {
+      "id": "whitespace-heavy-query",
+      "query": "   Que es    machine learning   y para que sirve?   ",
+      "expectedKeywords": ["machine", "learning", "aprendizaje"],
+      "minimumKeywordCoverage": 0.34,
+      "minimumSources": 1
+    },
+    {
+      "id": "special-characters-query",
+      "query": "IA??? ### $$$ -> explicalo simple!!!",
+      "expectedKeywords": ["ia", "inteligencia"],
+      "minimumKeywordCoverage": 0.5,
+      "minimumSources": 1
+    },
+    {
+      "id": "multilanguage-query",
+      "query": "Explain in Spanish what supervised learning is and why it matters",
+      "expectedKeywords": ["supervisado", "aprendizaje"],
+      "minimumKeywordCoverage": 0.5,
+      "minimumSources": 1
+    },
+    {
+      "id": "long-query-context",
+      "query": "Necesito una explicacion extensa y clara para una persona sin perfil tecnico: compara inteligencia artificial, machine learning y deep learning, menciona al menos una diferencia practica entre cada enfoque, cuando conviene usar cada uno y que riesgos comunes deberiamos considerar.",
+      "expectedKeywords": ["machine learning", "deep learning", "riesgos"],
+      "minimumKeywordCoverage": 0.34,
+      "minimumSources": 1
+    },
+    {
+      "id": "numeric-query",
+      "query": "Dame 3 ejemplos concretos de uso de IA en 2024",
+      "expectedKeywords": ["ejemplos", "ia", "2024"],
+      "minimumKeywordCoverage": 0.34,
+      "minimumSources": 1
+    },
+    {
+      "id": "case-variation-uppercase",
+      "query": "QUE ES EL APRENDIZAJE AUTOMATICO?",
+      "expectedKeywords": ["aprendizaje", "automatico"],
+      "minimumKeywordCoverage": 0.5,
+      "minimumSources": 1
+    },
+    {
+      "id": "accent-variation-query",
+      "query": "Que diferencia hay entre automatizacion e inteligencia artificial?",
+      "expectedKeywords": ["automatizacion", "inteligencia", "artificial"],
+      "minimumKeywordCoverage": 0.34,
+      "minimumSources": 1
+    },
+    {
+      "id": "no-match-gibberish",
+      "query": "zxqv 123 ??? qwerty sin contexto",
+      "expectedKeywords": ["informacion", "contexto"],
+      "minimumKeywordCoverage": 0,
+      "minimumSources": 0
+    },
+    {
+      "id": "empty-intent-like-query",
+      "query": "...",
+      "expectedKeywords": ["consulta"],
+      "minimumKeywordCoverage": 0,
+      "minimumSources": 0
     }
   ]
 }
