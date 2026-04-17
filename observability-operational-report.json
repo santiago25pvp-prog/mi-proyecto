@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-04-17T19:34:37.563Z",
+  "status": "advisory-fail",
+  "results": [
+    {
+      "check": "simulated_window_policy_evaluation",
+      "pass": false,
+      "details": "severity=critical reasons=availability_critical_breach|degraded_response_critical_breach|retry_exhaustion_critical_breach|latency_warning_breach"
+    },
+    {
+      "check": "taxonomy_integrity",
+      "pass": true,
+      "details": "all required families present"
+    },
+    {
+      "check": "degraded_baseline_guardrail",
+      "pass": false,
+      "details": "degraded_rate=0.5 target<=0.02"
+    }
+  ]
+}

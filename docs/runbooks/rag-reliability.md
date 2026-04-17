@@ -6,16 +6,19 @@ Operational guide for transient provider outages and degraded `/query` responses
 
 ## Signals and Severity Thresholds
 
-- Warning: `rag_degraded_response_total` > 2% over 10 minutes.
-- Critical: `rag_degraded_response_total` > 10% over 10 minutes.
-- Critical: `rag_provider_transient_error_total` sustained growth + p95 degraded latency drift.
+- Warning and critical are the only valid severities.
+- Phase A source of truth is log-derived SLI evaluation.
+- Availability warning: `< 99.5%` (critical when `< 99.0%`).
+- Degraded response warning: `> 2.0%` (critical when `> 4.0%`).
+- Retry exhaustion warning: `> 0.5%` (critical when `> 1.0%`).
+- Latency warning: `p95 > 3300ms` (critical when `p95 > 4000ms`).
 
 ## Triage Flow
 
 1. Confirm if failures are transient provider vs internal:
    - Transient pattern: `code=UPSTREAM_TEMPORARY_UNAVAILABLE`, `degraded=true`, `retryable=true`.
    - Terminal/internal pattern: `degraded=false` or generic `500` without degraded code.
-2. Filter logs by `requestId` and event keys:
+2. Filter logs by `requestId` and canonical event keys:
    - `rag_provider_retry`
    - `rag_provider_retry_exhausted`
    - `rag_query_degraded_response`
@@ -40,6 +43,11 @@ Operational guide for transient provider outages and degraded `/query` responses
 - Escalate to provider support when degraded critical threshold persists for > 15 minutes.
 - Escalate internally to on-call backend owner when terminal errors increase with degraded disabled.
 - Include sampled `requestId`s, event counts, and timeline in escalation message.
+
+## Ownership and Correlation
+
+- Ownership definitions live in `docs/observability/ownership-matrix.md`.
+- Alert rules without ownership metadata, runbook links, or correlation references are invalid and must not be promoted.
 
 ## Evidence Checklist (Post-Incident)
 

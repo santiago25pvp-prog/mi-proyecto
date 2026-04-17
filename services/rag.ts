@@ -1,6 +1,6 @@
 import { searchDocuments } from './retrieval';
 import { generateAnswerWithReliability, getReliabilityFlags } from './ai';
-import logger from './logger';
+import logger, { logReliabilityEvent } from './logger';
 import {
   DEGRADED_CODE,
   isRagReliabilityError,
@@ -44,6 +44,7 @@ export const executeRagQuery = async (
 ): Promise<RagQueryResponse> => {
     const requestId = options.requestId;
     const flags = getReliabilityFlags();
+    const startedAt = Date.now();
 
     // 1. Search documents in vector DB
     const searchResults = await searchDocuments(vectorStore, query, 5);
@@ -83,6 +84,22 @@ export const executeRagQuery = async (
                 retryAfterMs,
             });
 
+            logReliabilityEvent({
+                eventName: 'rag_query_fallback_served',
+                requestId: requestId ?? 'unknown',
+                route: '/query',
+                level: 'warn',
+                reliability: {
+                    errorClass: 'TRANSIENT_EXHAUSTED',
+                    code: DEGRADED_CODE,
+                    degraded: true,
+                    retryable: true,
+                    retryAfterMs,
+                    fallbackServed: true,
+                    latencyMs: Date.now() - startedAt,
+                },
+            });
+
             answer = DEFAULT_TRANSIENT_FALLBACK_MESSAGE;
             reliability = {
                 code: DEGRADED_CODE,
@@ -103,11 +120,20 @@ export const executeRagQuery = async (
     }));
 
     if (reliability) {
-        logger.warn('rag_query_degraded_response', {
-            requestId,
-            code: reliability.code,
-            retryAfterMs: reliability.retryAfterMs,
-            fallbackServed: reliability.fallbackServed,
+        logReliabilityEvent({
+            eventName: 'rag_query_degraded_response',
+            requestId: requestId ?? 'unknown',
+            route: '/query',
+            level: 'warn',
+            reliability: {
+                errorClass: 'TRANSIENT_EXHAUSTED',
+                code: reliability.code,
+                degraded: true,
+                retryable: true,
+                retryAfterMs: reliability.retryAfterMs,
+                fallbackServed: reliability.fallbackServed,
+                latencyMs: Date.now() - startedAt,
+            },
         });
     }
 

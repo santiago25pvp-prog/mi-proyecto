@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { getReliabilityFlags } from '../services/ai';
-import logger from '../services/logger';
+import logger, { logReliabilityEvent } from '../services/logger';
 import { DEGRADED_CODE, isRagReliabilityError } from '../services/rag-reliability';
 import { isHttpError } from './httpError';
 import { getRequestId } from './requestId';
@@ -39,6 +39,22 @@ export function errorMiddleware(error: unknown, req: Request, res: Response, nex
         fallbackServed: false,
       });
 
+      logReliabilityEvent({
+        eventName: 'query_request_degraded',
+        requestId,
+        route: '/query',
+        level: 'warn',
+        reliability: {
+          errorClass: 'TRANSIENT_EXHAUSTED',
+          code: DEGRADED_CODE,
+          degraded: true,
+          retryable: true,
+          retryAfterMs: error.retryAfterMs ?? 300,
+          fallbackServed: false,
+          status: 503,
+        },
+      });
+
       return res.status(503).json({
         error: error.message,
         requestId,
@@ -73,6 +89,23 @@ export function errorMiddleware(error: unknown, req: Request, res: Response, nex
     path: req.path,
     method: req.method,
     error: error instanceof Error ? error.message : String(error),
+  });
+
+  logReliabilityEvent({
+    eventName: 'unhandled_request_error',
+    requestId,
+    route: 'internal',
+    level: 'error',
+    reliability: {
+      errorClass: 'INTERNAL_UNKNOWN',
+      degraded: false,
+      retryable: false,
+      status: 500,
+    },
+    extra: {
+      path: req.path,
+      method: req.method,
+    },
   });
 
   return res.status(500).json({ error: 'Internal Server Error', requestId });

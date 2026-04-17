@@ -31,8 +31,30 @@ jobs:
         run: npm test
       - name: Run deterministic RAG reliability lane
         run: npm run rag:eval:deterministic
+      - name: Run observability structural checks
+        run: npm run observability:check:structural
       - name: Build backend
         run: npm run build
+
+  backend-observability-operational:
+    name: Backend Observability Operational (Advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: fake-key-for-tests
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install backend dependencies
+        run: npm ci
+      - name: Run observability operational checks
+        run: npm run observability:check:operational
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest

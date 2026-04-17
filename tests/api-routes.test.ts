@@ -432,6 +432,54 @@ test('/chat endpoint is deprecated and returns 404', async () => {
   }
 });
 
+test('/telemetry/reliability route responses', async (t) => {
+  await t.test('accepts valid degraded telemetry payload', async () => {
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postJson(baseUrl, '/telemetry/reliability', {
+        schemaVersion: 'v1',
+        eventName: 'frontend_degraded_response_rendered',
+        eventTs: new Date().toISOString(),
+        requestId: 'req-telemetry-route-1',
+        route: 'chat-shell',
+        reliability: {
+          code: 'UPSTREAM_TEMPORARY_UNAVAILABLE',
+          degraded: true,
+          retryable: true,
+          retryAfterMs: 700,
+        },
+        ui: {
+          toastShown: true,
+          retryActionAvailable: true,
+        },
+      });
+
+      const payload = await response.json();
+      assert.equal(response.status, 202);
+      assert.deepEqual(payload, { ok: true });
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  await t.test('rejects invalid degraded telemetry payload', async () => {
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postJson(baseUrl, '/telemetry/reliability', {
+        malformed: true,
+      });
+
+      const payload = await response.json();
+      assert.equal(response.status, 400);
+      assert.equal(payload.ok, false);
+    } finally {
+      await stopServer(server);
+    }
+  });
+});
+
 test('cors configuration hardening', async (t) => {
   await t.test('uses localhost fallback when not in production', async () => {
     const env: NodeJS.ProcessEnv = {

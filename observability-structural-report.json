@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-04-17T19:34:37.796Z",
+  "status": "pass",
+  "results": [
+    {
+      "check": "reliability_event_schema",
+      "pass": true,
+      "details": "schema ok"
+    },
+    {
+      "check": "sli_formula_determinism",
+      "pass": true,
+      "details": "formulaVersion=v1 eligibleQueryRequests=1"
+    },
+    {
+      "check": "alert_rule_contract",
+      "pass": true,
+      "details": "ownership and runbook complete"
+    },
+    {
+      "check": "doc_reference_integrity",
+      "pass": true,
+      "details": "ownership and policy docs must exist"
+    }
+  ]
+}

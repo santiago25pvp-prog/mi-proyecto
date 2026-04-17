@@ -9,6 +9,7 @@ import { validateRequest } from './middleware/requestValidation';
 import { checkDependencies } from './services/health';
 import { errorMiddleware, notFoundHandler } from './middleware/errorMiddleware';
 import { getRequestId, requestIdMiddleware } from './middleware/requestId';
+import { telemetryReliabilityHandler } from './services/observability/telemetry-endpoint';
 
 function resolveAllowedOrigin(env: NodeJS.ProcessEnv): string {
   const configuredOrigin = env.ALLOWED_ORIGIN?.trim();
@@ -71,6 +72,12 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
     const dependencies = await checkDependencies();
     res.json({ status: 'ok', dependencies, requestId: getRequestId(res) });
   });
+
+  app.post(
+    '/telemetry/reliability',
+    publicLimiter,
+    telemetryReliabilityHandler,
+  );
 
   app.post(
     '/ingest',

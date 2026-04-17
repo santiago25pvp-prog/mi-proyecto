@@ -18,6 +18,14 @@ Keep `main` merge protection aligned with real CI check names so required checks
 - Live lane remains operational signal (`live-non-blocking`) because provider availability can be non-deterministic.
 - Keep existing required CI check names unchanged; reliability lanes are governed as script-level policy and PR evidence.
 
+### Observability SLO Enforcement Lanes
+
+- Blocking structural lane: `npm run observability:check:structural`.
+- Structural lane must fail CI when schema/formula/ownership/runbook reference integrity checks fail.
+- Advisory operational lane: `npm run observability:check:operational`.
+- Operational lane is non-blocking and reports drift/noise concerns with follow-up tracking in PR notes.
+- Required GitHub check names remain unchanged (`Backend Typecheck, Tests & Build`, `Frontend Build`, `Frontend E2E Smoke`).
+
 ## Check-Name Drift: What it is
 
 Check-name drift happens when a GitHub Actions job `name` changes in workflow YAML, but branch protection still requires the old name. This can block merges (required check never appears) or leave a gap (wrong check required).

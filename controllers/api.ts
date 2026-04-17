@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import logger from '../services/logger';
+import logger, { logReliabilityEvent } from '../services/logger';
 import { getReliabilityFlags } from '../services/ai';
 import { ingestUrl } from '../services/ingestion';
 import { executeRagQuery } from '../services/rag';
@@ -47,17 +47,36 @@ export const queryHandler = async (req: Request, res: Response) => {
   const { body } = getValidatedRequest(res);
   const query = body.query as string;
   const flags = getReliabilityFlags();
+  const startedAt = Date.now();
 
-  logger.info('query_request_started', { requestId, queryLength: query.length });
+  logReliabilityEvent({
+    eventName: 'query_request_started',
+    requestId,
+    route: '/query',
+    reliability: {
+      degraded: false,
+    },
+    extra: { queryLength: query.length },
+  });
 
   const result = await executeRagQuery(vectorStore, query, { requestId });
+  const latencyMs = Date.now() - startedAt;
 
   if (result.reliability?.degraded && flags.degradedContractEnabled) {
-    logger.warn('query_request_degraded', {
+    logReliabilityEvent({
+      eventName: 'query_request_degraded',
       requestId,
-      code: result.reliability.code,
-      retryAfterMs: result.reliability.retryAfterMs,
-      fallbackServed: result.reliability.fallbackServed,
+      route: '/query',
+      level: 'warn',
+      reliability: {
+        errorClass: 'TRANSIENT_EXHAUSTED',
+        code: result.reliability.code,
+        degraded: true,
+        retryable: true,
+        retryAfterMs: result.reliability.retryAfterMs,
+        fallbackServed: result.reliability.fallbackServed,
+        latencyMs,
+      },
     });
 
     res.status(503).json({
@@ -73,6 +92,15 @@ export const queryHandler = async (req: Request, res: Response) => {
     return;
   }
 
-  logger.info('query_request_completed', { requestId, sourcesCount: result.sources.length });
+  logReliabilityEvent({
+    eventName: 'query_request_completed',
+    requestId,
+    route: '/query',
+    reliability: {
+      degraded: false,
+      latencyMs,
+    },
+    extra: { sourcesCount: result.sources.length },
+  });
   res.json({ ...result, requestId });
 };

@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import logger from './logger';
+import logger, { logReliabilityEvent } from './logger';
 import {
   DEGRADED_CODE,
   RagReliabilityError,
@@ -135,11 +135,20 @@ export const generateAnswerWithReliability = async (
       const elapsedMs = Date.now() - startedAt;
 
       if (errorClass === 'TERMINAL_PROVIDER') {
-        logger.error('rag_query_terminal_error', {
-          requestId,
-          errorClass,
-          status: (error as { status?: number }).status,
-          message: error instanceof Error ? error.message : String(error),
+        logReliabilityEvent({
+          eventName: 'rag_query_terminal_error',
+          requestId: requestId ?? 'unknown',
+          route: '/query',
+          level: 'error',
+          reliability: {
+            errorClass,
+            status: (error as { status?: number }).status,
+            degraded: false,
+            retryable: false,
+          },
+          extra: {
+            message: error instanceof Error ? error.message : String(error),
+          },
         });
 
         throw new RagReliabilityError('Terminal provider error', {
@@ -163,13 +172,22 @@ export const generateAnswerWithReliability = async (
       const exhausted = isLastAttempt || elapsedWithRetry > policy.maxRetryWindowMs;
 
       if (exhausted) {
-        logger.warn('rag_provider_retry_exhausted', {
-          requestId,
-          attemptsUsed: attempt,
-          elapsedMs,
-          retryAfterMs,
-          lastStatus: (error as { status?: number }).status,
-          errorClass: 'TRANSIENT_EXHAUSTED',
+        logReliabilityEvent({
+          eventName: 'rag_provider_retry_exhausted',
+          requestId: requestId ?? 'unknown',
+          route: '/query',
+          level: 'warn',
+          reliability: {
+            errorClass: 'TRANSIENT_EXHAUSTED',
+            degraded: true,
+            retryable: true,
+            retryAfterMs,
+            attemptsUsed: attempt,
+            status: (error as { status?: number }).status,
+          },
+          extra: {
+            elapsedMs,
+          },
         });
 
         throw new RagReliabilityError('Provider temporarily unavailable after retries', {
@@ -184,13 +202,23 @@ export const generateAnswerWithReliability = async (
       }
 
       const delayMs = getJitteredDelay(retryAfterMs, policy.jitterRatio, randomFn);
-      logger.warn('rag_provider_retry', {
-        requestId,
-        attempt,
-        maxAttempts: policy.maxAttempts,
-        delayMs,
-        status: (error as { status?: number }).status,
-        errorClass,
+      logReliabilityEvent({
+        eventName: 'rag_provider_retry',
+        requestId: requestId ?? 'unknown',
+        route: '/query',
+        level: 'warn',
+        reliability: {
+          errorClass,
+          degraded: false,
+          retryable: true,
+          retryAfterMs: delayMs,
+          attemptsUsed: attempt,
+          status: (error as { status?: number }).status,
+        },
+        extra: {
+          maxAttempts: policy.maxAttempts,
+          delayMs,
+        },
       });
 
       await wait(delayMs);

@@ -16,6 +16,7 @@ import {
   savePersistedChatStateWithKey,
 } from "@/lib/chat-storage";
 import { removeMessageById } from "@/lib/chat-messages";
+import { emitDegradedTelemetry } from "@/lib/reliability-telemetry";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -130,6 +131,17 @@ export function ChatShell() {
       setErrorRequestId(requestId);
       setDegradedHint(reliabilityHint);
       toast.error(requestId ? `${message} (Reference ID: ${requestId})` : message);
+
+      if (metadata.degraded && requestId && metadata.code) {
+        void emitDegradedTelemetry({
+          requestId,
+          code: metadata.code,
+          retryable: metadata.retryable,
+          retryAfterMs: metadata.retryAfterMs,
+          toastShown: true,
+          retryActionAvailable: Boolean(prompt.trim()),
+        });
+      }
     } finally {
       setPending(false);
     }

@@ -1,6 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';
+import {
+  createReliabilityEvent,
+  ReliabilityEventName,
+  ReliabilityRoute,
+  validateReliabilityEvent,
+} from './observability/event-schema';
 
 const logDir = path.resolve(process.cwd(), 'logs');
 if (!fs.existsSync(logDir)) {
@@ -42,3 +48,52 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export default logger;
+
+export interface ReliabilityLogInput {
+  eventName: ReliabilityEventName;
+  requestId: string;
+  route: ReliabilityRoute;
+  reliability: {
+    errorClass?:
+      | 'TRANSIENT_PROVIDER'
+      | 'TRANSIENT_EXHAUSTED'
+      | 'TERMINAL_PROVIDER'
+      | 'TERMINAL_REQUEST'
+      | 'INTERNAL_UNKNOWN';
+    code?: string;
+    degraded?: boolean;
+    retryable?: boolean;
+    retryAfterMs?: number;
+    attemptsUsed?: number;
+    fallbackServed?: boolean;
+    status?: number;
+    latencyMs?: number;
+    severity?: 'warning' | 'critical' | 'none';
+  };
+  level?: 'info' | 'warn' | 'error';
+  extra?: Record<string, unknown>;
+}
+
+export function logReliabilityEvent(input: ReliabilityLogInput): void {
+  const event = createReliabilityEvent({
+    eventName: input.eventName,
+    requestId: input.requestId,
+    route: input.route,
+    reliability: input.reliability,
+  });
+  const validation = validateReliabilityEvent(event);
+
+  if (!validation.valid) {
+    logger.warn('reliability_event_invalid', {
+      requestId: input.requestId,
+      eventName: input.eventName,
+      errors: validation.errors,
+    });
+  }
+
+  const level = input.level ?? 'info';
+  logger.log(level, input.eventName, {
+    ...event,
+    ...(input.extra ?? {}),
+  });
+}
