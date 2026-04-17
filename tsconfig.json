@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "commonjs",
+    "module": "node16",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -9,7 +9,7 @@
     "outDir": "./dist",
     "rootDir": ".",
     "incremental": true,
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "resolveJsonModule": true,
     "types": [
       "node"

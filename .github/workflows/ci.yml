@@ -23,6 +23,8 @@ jobs:
           node-version-file: .nvmrc
       - name: Install backend dependencies
         run: npm ci
+      - name: Guard TS config invariants
+        run: npm run check:tsconfig
       - name: Typecheck backend
         run: npx tsc --noEmit
       - name: Run backend tests

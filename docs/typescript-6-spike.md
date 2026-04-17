@@ -1,92 +1,71 @@
-# TypeScript 6.0.3 Compatibility Spike (Item 5)
+# TypeScript 6 Migration Spike and Apply Notes
 
 ## Scope
 
-- Evaluate TypeScript 6.0.3 compatibility in backend (repo root) and frontend (`frontend/`).
-- Keep this as a spike only (no permanent migration to TS6 in `package.json` or lockfiles).
+- Track migration status for TS6 compatibility in backend (repo root) and frontend (`frontend/`).
+- Keep runtime behavior stable while enforcing TS7-readiness guardrails.
 
-## Commands Executed
+## Baseline Invariants (Active)
 
-### Spike checks with TS 6.0.3 (no permanent install)
+- Backend `tsconfig.json` must keep `"module": "node16"` and `"moduleResolution": "node16"`.
+- Frontend `tsconfig.json` must keep `"moduleResolution": "bundler"` and path aliases via `paths` only.
+- `baseUrl` is disallowed in root and frontend tsconfig.
+- `ignoreDeprecations` is disallowed in root and frontend tsconfig.
+- Deprecated resolver modes `moduleResolution: "node"` and `"node10"` are disallowed.
+- Required CI check names remain unchanged:
+  - `Backend Typecheck, Tests & Build`
+  - `Frontend Build`
+  - `Frontend E2E Smoke`
+
+## Historical Blockers (Resolved)
+
+These findings were valid in an earlier branch state and are now resolved in current migration baseline:
+
+- Backend previously failed TS6 with `TS5107` because `moduleResolution: "node"` mapped to deprecated `node10` behavior.
+- Frontend previously failed TS6 with `TS5101` due to `baseUrl` usage.
+
+Current repository state no longer uses those deprecated settings in active tsconfig files.
+
+## Manual Decisions Approved
+
+- Decision 1A: Keep explicit frontend test runtime override in `frontend/tests/register.cjs` with:
+  - `module: "commonjs"`
+  - `moduleResolution: "node16"`
+- Decision 2A: Implement static automated guard now to fail if deprecated TypeScript keys reappear.
+
+## Guardrail Implementation
+
+- Added guard script: `scripts/check-tsconfig-guard.cjs`.
+- Guard checks root and frontend tsconfig for forbidden options:
+  - `compilerOptions.moduleResolution` set to `node` or `node10`
+  - `compilerOptions.baseUrl`
+  - `compilerOptions.ignoreDeprecations`
+- Exposed command: `npm run check:tsconfig`.
+- Enforced in CI inside existing backend required job without renaming any required checks.
+
+## Validation Gate Sequence (A-E)
 
 ```bash
-# backend/root
-npx -p typescript@6.0.3 tsc --noEmit -p tsconfig.json
+# Gate A: config integrity
+npm run check:tsconfig
 
-# frontend
-npx -p typescript@6.0.3 tsc --noEmit -p tsconfig.json
-```
-
-### Required validations for this item
-
-```bash
-# backend/root
+# Gate B/C: compiler + runtime/tooling compatibility
 npx tsc --noEmit
 npm test
+npm run build
 npm audit
 
-# frontend
+# frontend gates
+cd frontend
 npx tsc --noEmit
 npm test
 npm run build
 npm audit
 npm run test:e2e
-
-# root
-npm run rag:eval
 ```
 
-## Results
+## Rollback Guidance
 
-### Backend (root)
-
-- `npx -p typescript@6.0.3 tsc --noEmit -p tsconfig.json` failed with `TS5107`.
-- Error:
-
-```text
-Option 'moduleResolution=node10' is deprecated and will stop functioning in TypeScript 7.0.
-Specify compilerOption '"ignoreDeprecations": "6.0"' to silence this error.
-```
-
-- Current config uses `"moduleResolution": "node"` in `tsconfig.json`, interpreted as deprecated `node10` by TS6.
-
-### Frontend
-
-- `npx -p typescript@6.0.3 tsc --noEmit -p tsconfig.json` failed with `TS5101`.
-- Error:
-
-```text
-Option 'baseUrl' is deprecated and will stop functioning in TypeScript 7.0.
-Specify compilerOption '"ignoreDeprecations": "6.0"' to silence this error.
-```
-
-- Frontend config relies on `"baseUrl": "."` for path alias setup.
-
-### Validation status (current TS5 baseline)
-
-- Backend `npx tsc --noEmit`: PASS
-- Backend `npm test`: PASS
-- Backend `npm audit`: PASS (0 vulnerabilities)
-- Frontend `npx tsc --noEmit`: PASS
-- Frontend `npm test`: PASS
-- Frontend `npm run build`: PASS
-- Frontend `npm audit`: PASS (0 vulnerabilities)
-- Frontend E2E smoke (`npm run test:e2e`): PASS (3/3)
-- `npm run rag:eval`: FAIL due to external Gemini API quota (`429 Too Many Requests`, free-tier request limit exceeded)
-
-## Risks
-
-- TS6 introduces hard deprecation errors for options still used by both apps.
-- A direct migration without staged config updates may break CI typechecks.
-- If we suppress with `"ignoreDeprecations": "6.0"`, we can defer breakage but still need TS7-safe config changes.
-
-## Decision
-
-- **NO-GO** for immediate TS6 rollout in this item.
-- Rationale: both backend and frontend fail TS6 checks due to compiler option deprecations, so migration is not yet clean.
-
-## Recommended next steps
-
-1. Backend: replace deprecated `moduleResolution: "node"` with a TS6/TS7-compatible resolution mode after validating runtime/build behavior.
-2. Frontend: remove dependency on deprecated `baseUrl` by switching to explicit path mapping strategy compatible with TS6+.
-3. Run a follow-up migration branch that updates configs and re-runs full validation gates before changing pinned TypeScript versions.
+- If frontend test runtime regresses: revert `frontend/tests/register.cjs` and rerun frontend validations.
+- If static guard causes false positives: revert `scripts/check-tsconfig-guard.cjs` and the related `package.json`/CI step, then rerun gates.
+- If docs drift from actual config/tooling behavior: revert only docs and re-align with current files.

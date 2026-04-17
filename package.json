@@ -4,6 +4,7 @@
   "description": "Express backend service for mi-proyecto",
   "main": "dist/server.js",
   "scripts": {
+    "check:tsconfig": "node scripts/check-tsconfig-guard.cjs",
     "test": "node --test --require ts-node/register tests/admin-auth.test.ts tests/api-routes.test.ts tests/ai.test.ts tests/rag.test.ts tests/retrieval.test.ts tests/embedding.test.ts tests/splitter.test.ts",
     "test:backend": "node --test --require ts-node/register tests/admin-auth.test.ts tests/api-routes.test.ts tests/ai.test.ts tests/rag.test.ts tests/retrieval.test.ts tests/embedding.test.ts tests/splitter.test.ts",
     "dev": "ts-node-dev --respawn --transpile-only server.ts",
@@ -41,7 +42,7 @@
     "@types/node": "^22.19.17",
     "ts-node": "^10.9.2",
     "ts-node-dev": "2.0.0",
-    "typescript": "^5.8.2"
+    "typescript": "^6.0.2"
   },
   "overrides": {
     "diff": "4.0.4"
