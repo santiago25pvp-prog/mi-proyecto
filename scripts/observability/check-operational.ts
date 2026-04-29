@@ -5,26 +5,52 @@ import { createReliabilityEvent } from '../../services/observability/event-schem
 import { evaluateSloPolicy } from '../../services/observability/slo-policy';
 import { evaluatePhaseBPromotion, PhaseBPromotionInput } from '../../services/observability/promotion-gate';
 import { ObservabilityRollbackPlan, validateRollbackBoundary } from '../../services/observability/rollback-guard';
+import {
+  evaluateOperationalGate,
+  OperationalFinding,
+  parseOperationalMode,
+  parsePullRequestLabels,
+  validateObservabilityOverride,
+} from '../../services/observability/operational-override';
 
 interface OperationalResult {
   check: string;
   pass: boolean;
+  severity: 'warning' | 'critical';
   details: string;
 }
 
-function writeReport(results: OperationalResult[]): void {
+function writeReport(payload: {
+  status: 'pass' | 'fail' | 'advisory-fail';
+  mode: 'advisory' | 'soft-block' | 'hard-block';
+  gate: ReturnType<typeof evaluateOperationalGate>;
+  override: ReturnType<typeof validateObservabilityOverride>;
+  labelsParseErrors: string[];
+  results: OperationalResult[];
+}): void {
   const reportPath = path.resolve(process.cwd(), 'observability-operational-report.json');
-  const payload = {
+  const report = {
     generatedAt: new Date().toISOString(),
-    status: results.every((item) => item.pass) ? 'pass' : 'advisory-fail',
-    results,
+    status: payload.status,
+    mode: payload.mode,
+    gate: payload.gate,
+    override: payload.override,
+    labelsParseErrors: payload.labelsParseErrors,
+    results: payload.results,
   };
 
-  fs.writeFileSync(reportPath, JSON.stringify(payload, null, 2), 'utf8');
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
 }
 
 function main(): void {
-  const results: OperationalResult[] = [];
+  const findings: OperationalFinding[] = [];
+  const mode = parseOperationalMode(process.env.OBSERVABILITY_OPERATIONAL_MODE);
+  const labelsParsing = parsePullRequestLabels(process.env.GITHUB_PR_LABELS_JSON);
+  const override = validateObservabilityOverride({
+    prLabels: labelsParsing.labels,
+    prBody: process.env.GITHUB_PR_BODY ?? '',
+  });
+
   const simulatedEvents = [
     createReliabilityEvent({
       eventName: 'query_request_started',
@@ -67,21 +93,24 @@ function main(): void {
   });
   const policy = evaluateSloPolicy(sli);
 
-  results.push({
+  findings.push({
     check: 'simulated_window_policy_evaluation',
-    pass: policy.severity !== 'critical',
+    pass: policy.severity === 'none',
+    severity: policy.severity === 'critical' ? 'critical' : 'warning',
     details: `severity=${policy.severity} reasons=${policy.reasons.join('|') || 'none'}`,
   });
 
-  results.push({
+  findings.push({
     check: 'taxonomy_integrity',
     pass: sli.integrityFailures.length === 0,
+    severity: 'critical',
     details: sli.integrityFailures.length === 0 ? 'all required families present' : sli.integrityFailures.join('|'),
   });
 
-  results.push({
+  findings.push({
     check: 'degraded_baseline_guardrail',
     pass: (sli.degradedResponses.value ?? 0) <= 0.02,
+    severity: 'warning',
     details: `degraded_rate=${sli.degradedResponses.value ?? 'n/a'} target<=0.02`,
   });
 
@@ -90,16 +119,18 @@ function main(): void {
   ) as { advisoryCandidate: PhaseBPromotionInput; failingCandidate: PhaseBPromotionInput };
   const promotionAdvisory = evaluatePhaseBPromotion(promotionFixture.advisoryCandidate);
   const promotionFailing = evaluatePhaseBPromotion(promotionFixture.failingCandidate);
-  results.push({
+  findings.push({
     check: 'phase_b_promotion_parity_advisory',
     pass: promotionAdvisory.enforceable,
+    severity: 'warning',
     details: promotionAdvisory.enforceable
       ? 'advisory candidate meets promotion criteria'
       : promotionAdvisory.blockingReasons.join('|'),
   });
-  results.push({
+  findings.push({
     check: 'phase_b_promotion_guard_blocks_drift',
     pass: !promotionFailing.enforceable,
+    severity: 'critical',
     details: `blocked_reasons=${promotionFailing.blockingReasons.join('|') || 'none'}`,
   });
 
@@ -128,20 +159,41 @@ function main(): void {
   ];
   const rollbackValid = validateRollbackBoundary(rollbackFixture.validPlan, rollbackEvents);
   const rollbackInvalid = validateRollbackBoundary(rollbackFixture.invalidPlan, rollbackEvents);
-  results.push({
+  findings.push({
     check: 'rollback_boundary_valid_plan',
     pass: rollbackValid.valid,
+    severity: 'critical',
     details: rollbackValid.valid ? 'valid rollback accepted' : rollbackValid.errors.join('|'),
   });
-  results.push({
+  findings.push({
     check: 'rollback_boundary_rejects_invalid_plan',
     pass: !rollbackInvalid.valid,
+    severity: 'critical',
     details: rollbackInvalid.errors.join('|') || 'none',
   });
 
-  writeReport(results);
+  const gate = evaluateOperationalGate({
+    mode,
+    findings,
+    override,
+  });
 
-  if (!results.every((item) => item.pass)) {
+  const status: 'pass' | 'fail' | 'advisory-fail' = gate.blocked
+    ? 'fail'
+    : findings.every((item) => item.pass)
+      ? 'pass'
+      : 'advisory-fail';
+
+  writeReport({
+    status,
+    mode,
+    gate,
+    override,
+    labelsParseErrors: labelsParsing.errors,
+    results: findings,
+  });
+
+  if (gate.blocked) {
     process.exitCode = 1;
   }
 }

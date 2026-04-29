@@ -33,6 +33,12 @@ jobs:
         run: npm run rag:eval:deterministic
       - name: Run observability structural checks
         run: npm run observability:check:structural
+      - name: Run observability operational checks (soft-block)
+        env:
+          OBSERVABILITY_OPERATIONAL_MODE: soft-block
+          GITHUB_PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          GITHUB_PR_BODY: ${{ github.event.pull_request.body }}
+        run: npm run observability:check:operational
       - name: Build backend
         run: npm run build
 
@@ -54,6 +60,10 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
       - name: Run observability operational checks
+        env:
+          OBSERVABILITY_OPERATIONAL_MODE: advisory
+          GITHUB_PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          GITHUB_PR_BODY: ${{ github.event.pull_request.body }}
         run: npm run observability:check:operational
   frontend-build:
     name: Frontend Build

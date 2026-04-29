@@ -23,8 +23,18 @@ Keep `main` merge protection aligned with real CI check names so required checks
 - Blocking structural lane: `npm run observability:check:structural`.
 - Structural lane must fail CI when schema/formula/ownership/runbook reference integrity checks fail.
 - Structural lane also enforces Phase B promotion readiness and rollback boundary requirements via deterministic fixtures.
-- Advisory operational lane: `npm run observability:check:operational`.
-- Operational lane is non-blocking and reports drift/noise concerns with follow-up tracking in PR notes.
+- Required operational lane (in `Backend Typecheck, Tests & Build`): `npm run observability:check:operational` with `OBSERVABILITY_OPERATIONAL_MODE=soft-block`.
+- Advisory operational lane (`Backend Observability Operational (Advisory)`): same script with `OBSERVABILITY_OPERATIONAL_MODE=advisory`, still non-blocking.
+- Mode behavior:
+  - `advisory`: never blocks.
+  - `soft-block`: blocks only `critical` findings.
+  - `hard-block`: blocks `warning` and `critical` findings.
+- Override policy (critical bypass only in `soft-block`/`hard-block`):
+  - PR must include label `ops-override-observability`.
+  - PR body must include `## Observability Override` section with fields: `Reason`, `Risk`, `Owner`, `ExpiresAt`, `RollbackPlan`.
+  - `ExpiresAt` must be ISO8601, not expired, and within max TTL of 72h from evaluation time.
+  - If label is present but section is missing/invalid/incomplete, override is invalid and no bypass is granted.
+- Operational report `observability-operational-report.json` includes gate decision and override metadata for auditability.
 - Required GitHub check names remain unchanged (`Backend Typecheck, Tests & Build`, `Frontend Build`, `Frontend E2E Smoke`).
 
 ### Manual Sign-off Evidence Policy (T11/T12)

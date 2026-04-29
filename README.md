@@ -42,7 +42,7 @@
   - `npx tsc --noEmit`
   - `npm run test:backend`
   - `npm run observability:check:structural`
-  - `npm run observability:check:operational`
+  - `npm run observability:check:operational` (`OBSERVABILITY_OPERATIONAL_MODE=advisory|soft-block|hard-block`)
   - `npm run observability:check:promotion`
   - `npm run observability:check:rollback-boundary`
 - Frontend (inside `frontend`):
@@ -98,9 +98,26 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 
 - Phase B promotion gate evidence report: `observability-promotion-report.json`.
 - Rollback boundary evidence report: `observability-rollback-report.json`.
+- Operational gate report (mode + override metadata): `observability-operational-report.json`.
 - Manual sign-off evidence:
   - `docs/observability/signoff-t11-policy-decisions.md`
   - `docs/observability/signoff-t12-drill-evidence.md`
+
+### Observability Operational Override Policy
+
+- CI required backend job runs operational checks in `soft-block` mode.
+- `soft-block` blocks only `critical` findings.
+- `hard-block` blocks both `warning` and `critical` findings.
+- `advisory` never blocks and is used for signal-only lanes.
+- Override can bypass only `critical` findings, and only when both conditions are met:
+  - PR has label `ops-override-observability`.
+  - PR body includes `## Observability Override` with all required fields:
+    - `Reason`
+    - `Risk`
+    - `Owner`
+    - `ExpiresAt` (ISO8601, not expired, max TTL 72h)
+    - `RollbackPlan`
+- If label is present but override section is invalid/incomplete, override is rejected and no bypass is applied.
 
 - Per-case heuristic checks:
   - `keyword coverage`: matched `expectedKeywords` in the answer divided by total expected keywords.
