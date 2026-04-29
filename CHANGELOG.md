@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.15.0...v1.16.0) (2026-04-29)
+
+
+### Features
+
+* enforce observability operational override governance ([7fa3d1f](https://github.com/santiago25pvp-prog/mi-proyecto/commit/7fa3d1fdc0a6b449699cc75c4820c1ddb464f576))
+* **observability:** add override governance for operational gates ([dd2a615](https://github.com/santiago25pvp-prog/mi-proyecto/commit/dd2a61531cd9b57afb0aec55aaa61cdd634e2062))
+
 ## [1.15.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.14.0...v1.15.0) (2026-04-17)
 
 
