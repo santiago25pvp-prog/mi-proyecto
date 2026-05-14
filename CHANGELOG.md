@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.16.0...v1.17.0) (2026-05-14)
+
+
+### Features
+
+* harden observability operational mode parsing and report semantics ([16dfb2e](https://github.com/santiago25pvp-prog/mi-proyecto/commit/16dfb2ef1bdf5c6e49d9ca34b681ff87b97c5f80))
+* **observability:** harden operational mode parsing and classify findings ([fca3353](https://github.com/santiago25pvp-prog/mi-proyecto/commit/fca3353a79ae6d4a52f755779ab40c1b571949b1))
+
 ## [1.16.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.15.0...v1.16.0) (2026-04-29)
 
 
