@@ -7,7 +7,6 @@ import { evaluatePhaseBPromotion, PhaseBPromotionInput } from '../../services/ob
 import { ObservabilityRollbackPlan, validateRollbackBoundary } from '../../services/observability/rollback-guard';
 import {
   evaluateOperationalGate,
-  OperationalFinding,
   parseOperationalMode,
   parsePullRequestLabels,
   validateObservabilityOverride,
@@ -17,7 +16,18 @@ interface OperationalResult {
   check: string;
   pass: boolean;
   severity: 'warning' | 'critical';
+  category: 'risk' | 'guard';
   details: string;
+}
+
+const RISK_CHECKS = new Set<string>([
+  'simulated_window_policy_evaluation',
+  'taxonomy_integrity',
+  'degraded_baseline_guardrail',
+]);
+
+function classifyCheckCategory(check: string): 'risk' | 'guard' {
+  return RISK_CHECKS.has(check) ? 'risk' : 'guard';
 }
 
 function writeReport(payload: {
@@ -29,6 +39,8 @@ function writeReport(payload: {
   results: OperationalResult[];
 }): void {
   const reportPath = path.resolve(process.cwd(), 'observability-operational-report.json');
+  const riskFindings = payload.results.filter((result) => result.category === 'risk');
+  const guardFindings = payload.results.filter((result) => result.category === 'guard');
   const report = {
     generatedAt: new Date().toISOString(),
     status: payload.status,
@@ -36,6 +48,24 @@ function writeReport(payload: {
     gate: payload.gate,
     override: payload.override,
     labelsParseErrors: payload.labelsParseErrors,
+    summary: {
+      risk: {
+        total: riskFindings.length,
+        failing: riskFindings.filter((result) => !result.pass).map((result) => ({
+          check: result.check,
+          severity: result.severity,
+          details: result.details,
+        })),
+      },
+      guard: {
+        total: guardFindings.length,
+        failing: guardFindings.filter((result) => !result.pass).map((result) => ({
+          check: result.check,
+          severity: result.severity,
+          details: result.details,
+        })),
+      },
+    },
     results: payload.results,
   };
 
@@ -43,7 +73,7 @@ function writeReport(payload: {
 }
 
 function main(): void {
-  const findings: OperationalFinding[] = [];
+  const findings: OperationalResult[] = [];
   const mode = parseOperationalMode(process.env.OBSERVABILITY_OPERATIONAL_MODE);
   const labelsParsing = parsePullRequestLabels(process.env.GITHUB_PR_LABELS_JSON);
   const override = validateObservabilityOverride({
@@ -97,6 +127,7 @@ function main(): void {
     check: 'simulated_window_policy_evaluation',
     pass: policy.severity === 'none',
     severity: policy.severity === 'critical' ? 'critical' : 'warning',
+    category: classifyCheckCategory('simulated_window_policy_evaluation'),
     details: `severity=${policy.severity} reasons=${policy.reasons.join('|') || 'none'}`,
   });
 
@@ -104,6 +135,7 @@ function main(): void {
     check: 'taxonomy_integrity',
     pass: sli.integrityFailures.length === 0,
     severity: 'critical',
+    category: classifyCheckCategory('taxonomy_integrity'),
     details: sli.integrityFailures.length === 0 ? 'all required families present' : sli.integrityFailures.join('|'),
   });
 
@@ -111,6 +143,7 @@ function main(): void {
     check: 'degraded_baseline_guardrail',
     pass: (sli.degradedResponses.value ?? 0) <= 0.02,
     severity: 'warning',
+    category: classifyCheckCategory('degraded_baseline_guardrail'),
     details: `degraded_rate=${sli.degradedResponses.value ?? 'n/a'} target<=0.02`,
   });
 
@@ -123,6 +156,7 @@ function main(): void {
     check: 'phase_b_promotion_parity_advisory',
     pass: promotionAdvisory.enforceable,
     severity: 'warning',
+    category: classifyCheckCategory('phase_b_promotion_parity_advisory'),
     details: promotionAdvisory.enforceable
       ? 'advisory candidate meets promotion criteria'
       : promotionAdvisory.blockingReasons.join('|'),
@@ -131,6 +165,7 @@ function main(): void {
     check: 'phase_b_promotion_guard_blocks_drift',
     pass: !promotionFailing.enforceable,
     severity: 'critical',
+    category: classifyCheckCategory('phase_b_promotion_guard_blocks_drift'),
     details: `blocked_reasons=${promotionFailing.blockingReasons.join('|') || 'none'}`,
   });
 
@@ -163,12 +198,14 @@ function main(): void {
     check: 'rollback_boundary_valid_plan',
     pass: rollbackValid.valid,
     severity: 'critical',
+    category: classifyCheckCategory('rollback_boundary_valid_plan'),
     details: rollbackValid.valid ? 'valid rollback accepted' : rollbackValid.errors.join('|'),
   });
   findings.push({
     check: 'rollback_boundary_rejects_invalid_plan',
     pass: !rollbackInvalid.valid,
     severity: 'critical',
+    category: classifyCheckCategory('rollback_boundary_rejects_invalid_plan'),
     details: rollbackInvalid.errors.join('|') || 'none',
   });
 

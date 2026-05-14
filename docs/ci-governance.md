@@ -29,12 +29,13 @@ Keep `main` merge protection aligned with real CI check names so required checks
   - `advisory`: never blocks.
   - `soft-block`: blocks only `critical` findings.
   - `hard-block`: blocks `warning` and `critical` findings.
+- Mode parsing is fail-closed for invalid non-empty values: if `OBSERVABILITY_OPERATIONAL_MODE` is provided but not one of `advisory|soft-block|hard-block`, the operational check exits with error.
 - Override policy (critical bypass only in `soft-block`/`hard-block`):
   - PR must include label `ops-override-observability`.
   - PR body must include `## Observability Override` section with fields: `Reason`, `Risk`, `Owner`, `ExpiresAt`, `RollbackPlan`.
   - `ExpiresAt` must be ISO8601, not expired, and within max TTL of 72h from evaluation time.
   - If label is present but section is missing/invalid/incomplete, override is invalid and no bypass is granted.
-- Operational report `observability-operational-report.json` includes gate decision and override metadata for auditability.
+- Operational report `observability-operational-report.json` includes gate decision, override metadata, and a `summary` split into `risk` and `guard` findings to reduce interpretation noise.
 - Required GitHub check names remain unchanged (`Backend Typecheck, Tests & Build`, `Frontend Build`, `Frontend E2E Smoke`).
 
 ### Manual Sign-off Evidence Policy (T11/T12)

@@ -9,9 +9,12 @@ import {
   validateObservabilityOverride,
 } from '../../services/observability/operational-override';
 
-test('parseOperationalMode defaults to advisory for invalid input', () => {
+test('parseOperationalMode throws for invalid input and normalizes valid values', () => {
   assert.equal(parseOperationalMode(undefined), 'advisory');
-  assert.equal(parseOperationalMode('unknown'), 'advisory');
+  assert.throws(
+    () => parseOperationalMode('unknown'),
+    /invalid_observability_operational_mode:unknown.expected_one_of:advisory\|soft-block\|hard-block/,
+  );
   assert.equal(parseOperationalMode('SOFT-BLOCK'), 'soft-block');
 });
 

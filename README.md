@@ -109,6 +109,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 - `soft-block` blocks only `critical` findings.
 - `hard-block` blocks both `warning` and `critical` findings.
 - `advisory` never blocks and is used for signal-only lanes.
+- `OBSERVABILITY_OPERATIONAL_MODE` is fail-closed for invalid non-empty values (must be `advisory|soft-block|hard-block`).
 - Override can bypass only `critical` findings, and only when both conditions are met:
   - PR has label `ops-override-observability`.
   - PR body includes `## Observability Override` with all required fields:
@@ -118,6 +119,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
     - `ExpiresAt` (ISO8601, not expired, max TTL 72h)
     - `RollbackPlan`
 - If label is present but override section is invalid/incomplete, override is rejected and no bypass is applied.
+- Operational report includes a `summary` split by `risk` and `guard` findings for clearer triage.
 
 - Per-case heuristic checks:
   - `keyword coverage`: matched `expectedKeywords` in the answer divided by total expected keywords.

@@ -93,7 +93,13 @@ export function parseOperationalMode(value: string | undefined): OperationalMode
   }
 
   const normalized = value.trim().toLowerCase() as OperationalMode;
-  return MODE_VALUES.has(normalized) ? normalized : 'advisory';
+  if (!MODE_VALUES.has(normalized)) {
+    throw new Error(
+      `invalid_observability_operational_mode:${value}.expected_one_of:advisory|soft-block|hard-block`,
+    );
+  }
+
+  return normalized;
 }
 
 export function parsePullRequestLabels(rawLabelsJson: string | undefined): { labels: string[]; errors: string[] } {
