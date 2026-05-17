@@ -9,6 +9,10 @@ test('uses safe defaults when mode and weights are missing', () => {
   assert.equal(config.mode, 'vector');
   assert.equal(config.vectorWeight, 0.7);
   assert.equal(config.ftsWeight, 0.3);
+  assert.equal(config.rerank.enabled, false);
+  assert.equal(config.rerank.overlapWeight, 0.5);
+  assert.equal(config.rerank.similarityWeight, 0.4);
+  assert.equal(config.rerank.freshnessWeight, 0.1);
 });
 
 test('falls back to vector mode when RAG_RETRIEVAL_MODE is invalid', () => {
@@ -57,4 +61,32 @@ test('uses defaults when normalized sum is zero', () => {
   assert.equal(config.mode, 'hybrid');
   assert.equal(config.vectorWeight, 0.7);
   assert.equal(config.ftsWeight, 0.3);
+});
+
+test('enables rerank and normalizes configured rerank weights', () => {
+  const config = getRetrievalConfig({
+    RAG_RERANK_ENABLED: 'true',
+    RAG_RERANK_OVERLAP_WEIGHT: '2',
+    RAG_RERANK_SIMILARITY_WEIGHT: '1',
+    RAG_RERANK_FRESHNESS_WEIGHT: '1',
+  });
+
+  assert.equal(config.rerank.enabled, true);
+  assert.equal(config.rerank.overlapWeight, 0.5);
+  assert.equal(config.rerank.similarityWeight, 0.25);
+  assert.equal(config.rerank.freshnessWeight, 0.25);
+});
+
+test('falls back to disabled rerank and default weights when rerank env values are invalid', () => {
+  const config = getRetrievalConfig({
+    RAG_RERANK_ENABLED: 'sometimes',
+    RAG_RERANK_OVERLAP_WEIGHT: '-2',
+    RAG_RERANK_SIMILARITY_WEIGHT: 'NaN',
+    RAG_RERANK_FRESHNESS_WEIGHT: '0',
+  });
+
+  assert.equal(config.rerank.enabled, false);
+  assert.equal(config.rerank.overlapWeight, 0.5);
+  assert.equal(config.rerank.similarityWeight, 0.4);
+  assert.equal(config.rerank.freshnessWeight, 0.1);
 });

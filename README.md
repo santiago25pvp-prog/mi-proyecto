@@ -12,6 +12,7 @@
 - Stores content, metadata, and embeddings in Supabase using `pgvector`.
 - Retrieves relevant documents through the SQL function `match_documents`.
 - Supports hybrid retrieval v1 with feature flag (`vector` legacy mode or `hybrid` vector + FTS fusion).
+- Supports deterministic post-retrieval reranking for hybrid precision experiments.
 - Generates the final answer with `gemini-2.5-flash` using retrieved context.
 
 ### Unified API
@@ -93,6 +94,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 - Optional env overrides:
   - `RAG_EVAL_DATASET`: dataset path (same behavior as `--dataset`).
   - `RAG_EVAL_MIN_PASS_RATE`: overall pass-rate threshold from `0` to `1`.
+  - `RAG_EVAL_COMPARE_MODES`: comma-separated comparison variants. Supported values are `current`, `vector`, `hybrid`, `hybrid-rerank`, or `all`.
 
 - Lane governance:
   - `rag:eval:deterministic`: deterministic and reproducible lane for contract/policy assertions.
@@ -132,7 +134,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 
 - Summary metrics:
   - `total cases`, `passed`, `pass rate`, `retrieval hit rate` (cases with at least one source), and `average keyword coverage`.
-  - The script exits with non-zero status when overall pass rate is below the configured threshold.
+  - The script exits with non-zero status when the best configured report lane is below the configured threshold.
 
 ### Operations and Robustness
 
@@ -171,6 +173,8 @@ Notes:
 - `PORT` is optional; by default the backend listens on `3001`.
 - `RAG_RETRIEVAL_MODE` controls retrieval mode: `vector` (default, legacy) or `hybrid`.
 - `RAG_VECTOR_WEIGHT` and `RAG_FTS_WEIGHT` control hybrid weighting (defaults `0.7` and `0.3`). Invalid/missing values log warnings and safely fallback to defaults.
+- `RAG_RERANK_ENABLED` enables deterministic post-retrieval reranking when set to `true`, `1`, or `yes`.
+- `RAG_RERANK_OVERLAP_WEIGHT`, `RAG_RERANK_SIMILARITY_WEIGHT`, and `RAG_RERANK_FRESHNESS_WEIGHT` control rerank scoring weights (defaults `0.5`, `0.4`, and `0.1`). Invalid values safely fallback to defaults.
 - In `production`, `ALLOWED_ORIGIN` is required and backend startup fails if it is missing.
 
 Hybrid retrieval v1 notes:
@@ -179,6 +183,16 @@ Hybrid retrieval v1 notes:
 - If hybrid RPC fails (missing function/index/runtime DB issue), backend degrades to vector-only retrieval and logs `retrieval_hybrid_fallback_vector`.
 - Telemetry includes `retrieval_mode_selected` and `retrieval_hybrid_fallback_vector` events.
 - v1 limitation: lexical matching uses English text search configuration (`websearch_to_tsquery('english', ...)`).
+
+Rerank notes:
+
+- Reranking runs after vector or hybrid retrieval and preserves the existing `SearchResult[]` contract.
+- The deterministic score combines query-token overlap, original retrieval similarity, and freshness from `created_at`.
+- To compare Phase 3 modes without changing code, run:
+
+```bash
+RAG_EVAL_COMPARE_MODES=all npm run rag:eval
+```
 
 Create the `frontend/.env.local` file:
 
