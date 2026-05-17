@@ -3,7 +3,7 @@ import express from 'express';
 import logger from './services/logger';
 import { authMiddleware } from './middleware/authMiddleware';
 import { publicLimiter, authLimiter } from './middleware/rateLimiter';
-import { ingestHandler, queryHandler } from './controllers/api';
+import { ingestHandler, queryHandler, queryStreamHandler } from './controllers/api';
 import adminRoutes from './routes/admin';
 import { validateRequest } from './middleware/requestValidation';
 import { checkDependencies } from './services/health';
@@ -67,7 +67,6 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
   });
 
   app.use(express.json());
-
   app.get('/health', publicLimiter, async (_req, res) => {
     const dependencies = await checkDependencies();
     res.json({ status: 'ok', dependencies, requestId: getRequestId(res) });
@@ -97,6 +96,16 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
       { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
     ]),
     queryHandler,
+  );
+
+  app.post(
+    '/query/stream',
+    authMiddleware,
+    authLimiter,
+    validateRequest([
+      { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
+    ]),
+    queryStreamHandler,
   );
 
   app.use('/admin', adminRoutes);
