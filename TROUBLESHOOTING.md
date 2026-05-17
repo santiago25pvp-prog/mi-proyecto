@@ -50,6 +50,13 @@ This guide covers common failures in ingestion, embeddings, retrieval, frontend 
 - Validate query phrasing and use domain-specific terms used in the source material.
 - Run `npm run rag:eval` to measure retrieval hit rate and keyword coverage.
 
+### Symptom: Hybrid retrieval falls back to vector mode
+
+- Check logs for `retrieval_hybrid_fallback_vector` with the DB error reason.
+- Confirm migration `003_hybrid_retrieval_v1.sql` was applied (FTS column/index + `match_documents_hybrid`).
+- Verify `RAG_RETRIEVAL_MODE=hybrid` and that `RAG_VECTOR_WEIGHT` / `RAG_FTS_WEIGHT` are valid numbers.
+- If weights are missing/invalid, backend normalizes safe defaults and logs a warning.
+
 ## 3.1) RAG Reliability Incidents
 
 ### Symptom: `/query` returns `503` with degraded metadata

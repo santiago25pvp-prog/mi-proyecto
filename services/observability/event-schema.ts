@@ -18,6 +18,8 @@ export type ReliabilityEventName =
   | 'rag_query_degraded_response'
   | 'rag_query_fallback_served'
   | 'rag_query_terminal_error'
+  | 'retrieval_mode_selected'
+  | 'retrieval_hybrid_fallback_vector'
   | 'unhandled_request_error'
   | 'frontend_degraded_response_rendered'
   | 'frontend_degraded_telemetry_ingested';
@@ -67,6 +69,8 @@ const RELIABILITY_EVENT_NAMES = new Set<ReliabilityEventName>([
   'rag_query_degraded_response',
   'rag_query_fallback_served',
   'rag_query_terminal_error',
+  'retrieval_mode_selected',
+  'retrieval_hybrid_fallback_vector',
   'unhandled_request_error',
   'frontend_degraded_response_rendered',
   'frontend_degraded_telemetry_ingested',

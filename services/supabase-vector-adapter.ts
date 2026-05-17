@@ -2,6 +2,8 @@ import { supabase } from './vector-db';
 import { VectorStore, SearchResult, InsertResult, Document } from './vector-store.interface';
 import { getEmbedding } from './embedding';
 import { TaskType } from '@google/generative-ai';
+import logger, { logReliabilityEvent } from './logger';
+import { getRetrievalConfig } from './retrieval-config';
 
 interface SupabaseMatchDocumentRow {
   id: number;
@@ -14,20 +16,7 @@ interface SupabaseMatchDocumentRow {
 }
 
 export class SupabaseVectorAdapter implements VectorStore {
-  async searchDocuments(query: string, limit: number): Promise<SearchResult[]> {
-    const embedding = await getEmbedding(query, TaskType.RETRIEVAL_QUERY);
-    
-    const { data, error } = await supabase.rpc('match_documents', {
-        query_embedding: embedding,
-        match_threshold: 0.5,
-        match_count: limit,
-    });
-
-    if (error) {
-        throw error;
-    }
-
-    // Transform Supabase response to SearchResult[]
+  private mapSearchResults(data: SupabaseMatchDocumentRow[] | null): SearchResult[] {
     return (data || []).map((item: SupabaseMatchDocumentRow) => ({
       similarity: item.similarity,
       document: {
@@ -39,6 +28,84 @@ export class SupabaseVectorAdapter implements VectorStore {
         created_at: item.created_at
       } as Document
     }));
+  }
+
+  private async searchVector(embedding: number[], limit: number): Promise<SearchResult[]> {
+    const { data, error } = await supabase.rpc('match_documents', {
+      query_embedding: embedding,
+      match_threshold: 0.5,
+      match_count: limit,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return this.mapSearchResults(data as SupabaseMatchDocumentRow[] | null);
+  }
+
+  private async searchHybrid(query: string, embedding: number[], limit: number): Promise<SearchResult[]> {
+    const config = getRetrievalConfig();
+
+    const { data, error } = await supabase.rpc('match_documents_hybrid', {
+      query_text: query,
+      query_embedding: embedding,
+      match_threshold: 0.5,
+      match_count: limit,
+      vector_weight: config.vectorWeight,
+      fts_weight: config.ftsWeight,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return this.mapSearchResults(data as SupabaseMatchDocumentRow[] | null);
+  }
+
+  async searchDocuments(query: string, limit: number): Promise<SearchResult[]> {
+    const embedding = await getEmbedding(query, TaskType.RETRIEVAL_QUERY);
+    const config = getRetrievalConfig();
+
+    logReliabilityEvent({
+      eventName: 'retrieval_mode_selected',
+      requestId: 'unknown',
+      route: 'internal',
+      reliability: {
+        degraded: false,
+      },
+      extra: {
+        mode: config.mode,
+        vectorWeight: config.vectorWeight,
+        ftsWeight: config.ftsWeight,
+      },
+    });
+
+    if (config.mode === 'hybrid') {
+      try {
+        return await this.searchHybrid(query, embedding, limit);
+      } catch (error) {
+        logger.warn('retrieval_hybrid_fallback_vector', {
+          reason: error instanceof Error ? error.message : String(error),
+        });
+        logReliabilityEvent({
+          eventName: 'retrieval_hybrid_fallback_vector',
+          requestId: 'unknown',
+          route: 'internal',
+          level: 'warn',
+          reliability: {
+            degraded: true,
+            fallbackServed: true,
+          },
+          extra: {
+            reason: error instanceof Error ? error.message : String(error),
+          },
+        });
+        return this.searchVector(embedding, limit);
+      }
+    }
+
+    return this.searchVector(embedding, limit);
   }
 
   async insertDocument(docData: { content: string; embedding: number[]; metadata: Record<string, unknown> }): Promise<InsertResult> {
