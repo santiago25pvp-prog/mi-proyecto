@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.18.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.17.0...v1.18.0) (2026-05-17)
+
+
+### Features
+
+* fase 1 streaming SSE con fallback JSON ([8409944](https://github.com/santiago25pvp-prog/mi-proyecto/commit/8409944085a42feff7d84ca599d126b8faab38a6))
+* fase 2 retrieval híbrido v1 con fallback vector ([b78fa81](https://github.com/santiago25pvp-prog/mi-proyecto/commit/b78fa81279df207bac47f3f3238565db93adc2a7))
+* phase 1 SSE streaming with JSON fallback ([c520ca9](https://github.com/santiago25pvp-prog/mi-proyecto/commit/c520ca970fd0d7f7164f221f6b9a840f66e91127))
+* phase 2 hybrid retrieval v1 with vector fallback ([5c16ac2](https://github.com/santiago25pvp-prog/mi-proyecto/commit/5c16ac28570df50f0d18d868f123d4fb2f779e53))
+
 ## [1.17.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.16.0...v1.17.0) (2026-05-14)
 
 
