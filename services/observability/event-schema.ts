@@ -13,6 +13,11 @@ export type ReliabilityEventName =
   | 'query_request_started'
   | 'query_request_completed'
   | 'query_request_degraded'
+  | 'stream_start'
+  | 'first_token'
+  | 'stream_done'
+  | 'stream_error'
+  | 'stream_abort'
   | 'rag_provider_retry'
   | 'rag_provider_retry_exhausted'
   | 'rag_query_degraded_response'
@@ -24,7 +29,7 @@ export type ReliabilityEventName =
   | 'frontend_degraded_response_rendered'
   | 'frontend_degraded_telemetry_ingested';
 
-export type ReliabilityRoute = '/query' | '/ingest' | 'internal' | 'chat-shell';
+export type ReliabilityRoute = '/query' | '/query/stream' | '/ingest' | 'internal' | 'chat-shell';
 
 export interface ReliabilityEventV1 {
   schemaVersion: typeof RELIABILITY_SCHEMA_VERSION;
@@ -64,6 +69,11 @@ const RELIABILITY_EVENT_NAMES = new Set<ReliabilityEventName>([
   'query_request_started',
   'query_request_completed',
   'query_request_degraded',
+  'stream_start',
+  'first_token',
+  'stream_done',
+  'stream_error',
+  'stream_abort',
   'rag_provider_retry',
   'rag_provider_retry_exhausted',
   'rag_query_degraded_response',
@@ -78,6 +88,7 @@ const RELIABILITY_EVENT_NAMES = new Set<ReliabilityEventName>([
 
 const RELIABILITY_ROUTES = new Set<ReliabilityRoute>([
   '/query',
+  '/query/stream',
   '/ingest',
   'internal',
   'chat-shell',

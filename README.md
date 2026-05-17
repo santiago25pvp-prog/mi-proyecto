@@ -17,6 +17,7 @@
 ### Unified API
 
 - `POST /query` receives `query` and returns JSON in this format: `{ "requestId": string, "answer": string, "sources": [] }`.
+- `POST /query/stream` returns Server-Sent Events (`text/event-stream`) with incremental `token` chunks, final `done`, and structured `error` events.
 - During transient provider exhaustion, `POST /query` returns `503` with additive compatibility fields: `code`, `degraded`, `retryable`, `retryAfterMs`, while preserving `error` and `requestId`.
 - `POST /ingest` exposes the document ingestion pipeline and reports successful and failed insertions.
 - Administrative endpoints allow listing documents, deleting documents, and checking stats.
@@ -134,7 +135,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 ### Operations and Robustness
 
 - `server.ts` validates environment variables on startup and exposes a healthcheck with dependency verification.
-- The backend uses structured logging with Winston and currently adds request IDs in the `ingest` and `query` API handlers.
+- The backend uses structured logging with Winston and currently adds request IDs in the `ingest`, `query`, and `query/stream` API handlers.
 - The scraper has timeout, redirect limits, and payload size limits to prevent trivial DoS cases.
 - The frontend chat persists transcript and active selection per user in `localStorage`.
 - Frontend authentication refreshes the session when the token is close to expiration.
@@ -246,7 +247,7 @@ Default ports:
 
 - `controllers/`
   Contains backend HTTP handlers.
-  - `api.ts`: exposes `/ingest` and `/query`.
+  - `api.ts`: exposes `/ingest`, `/query`, and `/query/stream`.
   - `admin.ts`: exposes administrative operations for documents and stats.
 
 - `services/`
@@ -363,6 +364,28 @@ Default ports:
 ```json
 { "error": "Failed to process query" }
 ```
+
+### POST /query/stream
+
+- Method: `POST`
+- Auth: required
+- Content type: request body is `application/json`, response is `text/event-stream; charset=utf-8`
+- JSON body:
+
+```json
+{ "query": "consulta" }
+```
+
+- SSE event contract:
+  - `event: token` with payload `{ "requestId": string, "delta": string }`
+  - `event: done` with payload `{ "requestId": string, "answer": string, "sources": [], "timings": { "firstTokenMs": number | null, "totalMs": number } }`
+  - `event: error` with payload `{ "requestId": string, "error": string, "status": number, "degraded": boolean, "retryable": boolean, "retryAfterMs"?: number, "code"?: string }`
+- Keepalive behavior:
+  - the backend emits periodic SSE comments (`: heartbeat`) to keep the connection open.
+- Fallback behavior:
+  - frontend first attempts `/query/stream` and automatically falls back to `POST /query` JSON when SSE is unavailable, unsupported, or returns `404/405/501`.
+- Current limitation:
+  - provider output is currently streamed through safe incremental chunking of the final generated answer. The contract is forward-compatible with true token streaming from the model provider.
 
 ### POST /ingest
 

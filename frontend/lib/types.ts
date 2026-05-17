@@ -16,6 +16,17 @@ export interface ChatResponse extends ApiResponseMeta {
   retryAfterMs?: number;
 }
 
+export interface ChatStreamTokenEvent extends ApiResponseMeta {
+  delta: string;
+}
+
+export interface ChatStreamDoneEvent extends ChatResponse {
+  timings?: {
+    firstTokenMs?: number | null;
+    totalMs?: number;
+  };
+}
+
 export interface BackendErrorMetadata {
   code: string | null;
   degraded: boolean;
