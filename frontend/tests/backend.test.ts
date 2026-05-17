@@ -3,7 +3,9 @@ const { mock, test } = require("node:test");
 
 import {
   BackendApiError,
+  fetchIngestJobStatus,
   getBackendErrorInfo,
+  ingestDocument,
   sendChatMessage,
 } from "../lib/backend";
 
@@ -82,6 +84,69 @@ test("sendChatMessage preserves additive degraded metadata for compatibility", a
         return true;
       },
     );
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("ingestDocument returns queued job metadata", async () => {
+  const fetchMock = mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    status: 202,
+    text: async () =>
+      JSON.stringify({
+        jobId: "job-123",
+        status: "queued",
+        requestId: "req-ingest",
+      }),
+  } as Response));
+
+  try {
+    const result = await ingestDocument("token", "https://example.com/docs");
+
+    assert.deepEqual(result, {
+      jobId: "job-123",
+      status: "queued",
+      requestId: "req-ingest",
+    });
+    assert.equal(fetchMock.mock.calls[0].arguments[1]?.method, "POST");
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("fetchIngestJobStatus returns terminal job result", async () => {
+  const fetchMock = mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    status: 200,
+    text: async () =>
+      JSON.stringify({
+        jobId: "job-123",
+        status: "done",
+        url: "https://example.com/docs",
+        attempts: 1,
+        maxAttempts: 3,
+        createdAt: "2026-05-17T00:00:00.000Z",
+        updatedAt: "2026-05-17T00:00:01.000Z",
+        result: {
+          status: "success",
+          chunks_inserted: 2,
+          chunks_failed: 0,
+        },
+        requestId: "req-status",
+      }),
+  } as Response));
+
+  try {
+    const result = await fetchIngestJobStatus("token", "job-123");
+
+    assert.deepEqual(result.result, {
+      status: "success",
+      chunks_inserted: 2,
+      chunks_failed: 0,
+    });
+    assert.equal(result.status, "done");
+    assert.equal(fetchMock.mock.calls[0].arguments[1]?.method, undefined);
   } finally {
     fetchMock.mock.restore();
   }

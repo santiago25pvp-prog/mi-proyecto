@@ -12,6 +12,7 @@
 - Stores content, metadata, and embeddings in Supabase using `pgvector`.
 - Retrieves relevant documents through the SQL function `match_documents`.
 - Supports hybrid retrieval v1 with feature flag (`vector` legacy mode or `hybrid` vector + FTS fusion).
+- Supports deterministic post-retrieval reranking for hybrid precision experiments.
 - Generates the final answer with `gemini-2.5-flash` using retrieved context.
 
 ### Unified API
@@ -19,7 +20,7 @@
 - `POST /query` receives `query` and returns JSON in this format: `{ "requestId": string, "answer": string, "sources": [] }`.
 - `POST /query/stream` returns Server-Sent Events (`text/event-stream`) with incremental `token` chunks, final `done`, and structured `error` events.
 - During transient provider exhaustion, `POST /query` returns `503` with additive compatibility fields: `code`, `degraded`, `retryable`, `retryAfterMs`, while preserving `error` and `requestId`.
-- `POST /ingest` exposes the document ingestion pipeline and reports successful and failed insertions.
+- `POST /ingest` queues document ingestion and `GET /ingest/:jobId` exposes job status.
 - Administrative endpoints allow listing documents, deleting documents, and checking stats.
 
 ### Authentication and Authorization
@@ -93,6 +94,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 - Optional env overrides:
   - `RAG_EVAL_DATASET`: dataset path (same behavior as `--dataset`).
   - `RAG_EVAL_MIN_PASS_RATE`: overall pass-rate threshold from `0` to `1`.
+  - `RAG_EVAL_COMPARE_MODES`: comma-separated comparison variants. Supported values are `current`, `vector`, `hybrid`, `hybrid-rerank`, or `all`.
 
 - Lane governance:
   - `rag:eval:deterministic`: deterministic and reproducible lane for contract/policy assertions.
@@ -132,7 +134,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 
 - Summary metrics:
   - `total cases`, `passed`, `pass rate`, `retrieval hit rate` (cases with at least one source), and `average keyword coverage`.
-  - The script exits with non-zero status when overall pass rate is below the configured threshold.
+  - The script exits with non-zero status when the best configured report lane is below the configured threshold.
 
 ### Operations and Robustness
 
@@ -171,6 +173,8 @@ Notes:
 - `PORT` is optional; by default the backend listens on `3001`.
 - `RAG_RETRIEVAL_MODE` controls retrieval mode: `vector` (default, legacy) or `hybrid`.
 - `RAG_VECTOR_WEIGHT` and `RAG_FTS_WEIGHT` control hybrid weighting (defaults `0.7` and `0.3`). Invalid/missing values log warnings and safely fallback to defaults.
+- `RAG_RERANK_ENABLED` enables deterministic post-retrieval reranking when set to `true`, `1`, or `yes`.
+- `RAG_RERANK_OVERLAP_WEIGHT`, `RAG_RERANK_SIMILARITY_WEIGHT`, and `RAG_RERANK_FRESHNESS_WEIGHT` control rerank scoring weights (defaults `0.5`, `0.4`, and `0.1`). Invalid values safely fallback to defaults.
 - In `production`, `ALLOWED_ORIGIN` is required and backend startup fails if it is missing.
 
 Hybrid retrieval v1 notes:
@@ -179,6 +183,16 @@ Hybrid retrieval v1 notes:
 - If hybrid RPC fails (missing function/index/runtime DB issue), backend degrades to vector-only retrieval and logs `retrieval_hybrid_fallback_vector`.
 - Telemetry includes `retrieval_mode_selected` and `retrieval_hybrid_fallback_vector` events.
 - v1 limitation: lexical matching uses English text search configuration (`websearch_to_tsquery('english', ...)`).
+
+Rerank notes:
+
+- Reranking runs after vector or hybrid retrieval and preserves the existing `SearchResult[]` contract.
+- The deterministic score combines query-token overlap, original retrieval similarity, and freshness from `created_at`.
+- To compare Phase 3 modes without changing code, run:
+
+```bash
+RAG_EVAL_COMPARE_MODES=all npm run rag:eval
+```
 
 Create the `frontend/.env.local` file:
 
@@ -249,7 +263,7 @@ Default ports:
 
 - `controllers/`
   Contains backend HTTP handlers.
-  - `api.ts`: exposes `/ingest`, `/query`, and `/query/stream`.
+  - `api.ts`: exposes `/ingest`, `/ingest/:jobId`, `/query`, and `/query/stream`.
   - `admin.ts`: exposes administrative operations for documents and stats.
 
 - `services/`
@@ -401,36 +415,66 @@ Default ports:
 
 - Parameters:
   - `url` (string, required): URL to scrape and index.
-- `200 OK` response when full ingestion succeeds:
+- `202 Accepted` response when the job is queued:
 
 ```json
 {
-  "status": "success",
-  "chunks_inserted": 2,
-  "chunks_failed": 0
+  "requestId": "6b0d4fd3-bb0a-40df-82d1-9a33d9c6bdc4",
+  "jobId": "7c941c1d-6821-4f4e-a512-9b2cb54fd85f",
+  "status": "queued"
 }
 ```
 
-- `200 OK` response when ingestion is partial:
-
-```json
-{
-  "status": "partial_success",
-  "chunks_inserted": 1,
-  "chunks_failed": 1
-}
-```
-
+- The backend processes the job asynchronously with in-memory status tracking and retries transient failures.
+- If the same URL is already `queued` or `running`, the active `jobId` is reused.
 - `400 Bad Request` response:
 
 ```json
-{ "error": "URL is required" }
+{ "error": "Invalid request", "details": ["URL is required"] }
 ```
 
-- `500 Internal Server Error` response:
+### GET /ingest/:jobId
+
+- Method: `GET`
+- Auth: required
+- Parameters:
+  - `jobId` (string, required): ID returned by `POST /ingest`.
+- `200 OK` response while running:
 
 ```json
-{ "error": "Failed to ingest URL" }
+{
+  "requestId": "87bb63d5-8cf8-45cf-84e7-3933ae7d8d9b",
+  "jobId": "7c941c1d-6821-4f4e-a512-9b2cb54fd85f",
+  "status": "running",
+  "url": "https://example.com/docs",
+  "attempts": 1,
+  "maxAttempts": 3,
+  "createdAt": "2026-05-17T23:20:00.000Z",
+  "updatedAt": "2026-05-17T23:20:01.000Z",
+  "startedAt": "2026-05-17T23:20:01.000Z"
+}
+```
+
+- `200 OK` response when complete:
+
+```json
+{
+  "requestId": "87bb63d5-8cf8-45cf-84e7-3933ae7d8d9b",
+  "jobId": "7c941c1d-6821-4f4e-a512-9b2cb54fd85f",
+  "status": "done",
+  "url": "https://example.com/docs",
+  "attempts": 1,
+  "maxAttempts": 3,
+  "createdAt": "2026-05-17T23:20:00.000Z",
+  "updatedAt": "2026-05-17T23:20:08.000Z",
+  "startedAt": "2026-05-17T23:20:01.000Z",
+  "completedAt": "2026-05-17T23:20:08.000Z",
+  "result": {
+    "status": "success",
+    "chunks_inserted": 2,
+    "chunks_failed": 0
+  }
+}
 ```
 
 ### GET /admin/documents

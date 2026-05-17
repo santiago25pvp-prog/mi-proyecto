@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import logger, { logReliabilityEvent } from '../services/logger';
 import { getReliabilityFlags } from '../services/ai';
 import { ingestUrl } from '../services/ingestion';
+import { createIngestJobQueue, IngestJob, IngestResult } from '../services/ingest-jobs';
 import { executeRagQuery } from '../services/rag';
 import { SupabaseVectorAdapter } from '../services/supabase-vector-adapter';
 import { getValidatedRequest } from '../middleware/requestValidation';
@@ -12,6 +13,10 @@ import { DEGRADED_CODE, isRagReliabilityError } from '../services/rag-reliabilit
 const vectorStore = new SupabaseVectorAdapter();
 const STREAM_HEARTBEAT_MS = 15000;
 const STREAM_CHUNK_SIZE = 72;
+
+export const ingestJobQueue = createIngestJobQueue({
+  runIngest: (url: string): Promise<IngestResult> => ingestUrl(vectorStore, url),
+});
 
 type SseEventName = 'token' | 'done' | 'error';
 
@@ -30,36 +35,57 @@ function chunkAnswer(text: string, chunkSize = STREAM_CHUNK_SIZE): string[] {
   return chunks;
 }
 
+function serializeIngestJob(job: IngestJob) {
+  return {
+    jobId: job.id,
+    status: job.status,
+    url: job.url,
+    attempts: job.attempts,
+    maxAttempts: job.maxAttempts,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    ...(job.startedAt ? { startedAt: job.startedAt } : {}),
+    ...(job.completedAt ? { completedAt: job.completedAt } : {}),
+    ...(job.result ? { result: job.result } : {}),
+    ...(job.error ? { error: job.error } : {}),
+  };
+}
+
 export const ingestHandler = async (req: Request, res: Response) => {
   const requestId = getRequestId(res);
   const { body } = getValidatedRequest(res);
   const url = body.url as string;
 
-  logger.info('ingest_request_started', { requestId, url });
+  const { job, reused } = ingestJobQueue.queueJob(url, requestId);
 
-  try {
-    const result = await ingestUrl(vectorStore, url);
-    logger.info('ingest_request_completed', { requestId, result });
-    res.json({ ...result, requestId });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  logger.info('ingest_request_accepted', {
+    requestId,
+    jobId: job.id,
+    url: job.url,
+    status: job.status,
+    reused,
+  });
 
-    logger.error('ingest_request_failed', { requestId, error: message });
+  res.status(202).json({
+    jobId: job.id,
+    status: job.status,
+    requestId,
+  });
+};
 
-    if (message.includes('timeout')) {
-      throw new HttpError('Request timeout: URL took too long to respond', 408);
-    }
+export const ingestStatusHandler = async (req: Request, res: Response) => {
+  const requestId = getRequestId(res);
+  const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
+  const job = ingestJobQueue.getJob(jobId ?? '');
 
-    if (message.includes('404')) {
-      throw new HttpError('URL not found', 400);
-    }
-
-    if (message.includes('HTTP')) {
-      throw new HttpError('Failed to fetch URL', 502);
-    }
-
-    throw new HttpError('Failed to ingest URL', 500);
+  if (!job) {
+    throw new HttpError('Ingest job not found', 404);
   }
+
+  res.json({
+    ...serializeIngestJob(job),
+    requestId,
+  });
 };
 
 export const queryHandler = async (req: Request, res: Response) => {

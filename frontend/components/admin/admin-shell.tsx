@@ -8,10 +8,17 @@ import {
   deleteDocument,
   fetchAdminStats,
   fetchDocuments,
+  fetchIngestJobStatus,
   getBackendErrorInfo,
   ingestDocument,
 } from "@/lib/backend";
-import type { AdminDocument, AdminStats } from "@/lib/types";
+import type {
+  AdminDocument,
+  AdminStats,
+  IngestJobStatus,
+  IngestJobStatusResponse,
+  IngestResult,
+} from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +37,49 @@ function formatDate(value: string) {
   }).format(date);
 }
 
+type IngestJobView = {
+  jobId: string;
+  status: IngestJobStatus;
+  requestId?: string;
+  url?: string;
+  attempts?: number;
+  maxAttempts?: number;
+  result?: IngestResult;
+  error?: string;
+};
+
+function toIngestJobView(job: IngestJobStatusResponse): IngestJobView {
+  return {
+    jobId: job.jobId,
+    status: job.status,
+    requestId: job.requestId,
+    url: job.url,
+    attempts: job.attempts,
+    maxAttempts: job.maxAttempts,
+    result: job.result,
+    error: job.error,
+  };
+}
+
+function getIngestStatusLabel(status: IngestJobStatus) {
+  const labels: Record<IngestJobStatus, string> = {
+    queued: "En cola",
+    running: "Ejecutando",
+    done: "Completada",
+    failed: "Fallida",
+  };
+
+  return labels[status];
+}
+
+function formatIngestResult(result: IngestResult) {
+  if (result.status === "partial_success") {
+    return `Ingesta parcial. ${result.chunks_inserted} chunks insertados, ${result.chunks_failed} fallaron.`;
+  }
+
+  return `Ingesta completada. ${result.chunks_inserted} chunks insertados.`;
+}
+
 export function AdminShell() {
   const { getAccessToken } = useAuth();
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -39,6 +89,8 @@ export function AdminShell() {
   const [refreshing, setRefreshing] = useState(false);
   const [ingestUrlValue, setIngestUrlValue] = useState("");
   const [ingesting, setIngesting] = useState(false);
+  const [currentIngestJob, setCurrentIngestJob] = useState<IngestJobView | null>(null);
+  const [refreshingIngestJob, setRefreshingIngestJob] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
@@ -91,10 +143,53 @@ export function AdminShell() {
     void loadDashboard();
   }, []);
 
+  async function refreshIngestJobStatus(jobId: string, tokenOverride?: string) {
+    setRefreshingIngestJob(true);
+    setIngestError(null);
+    setIngestErrorRequestId(null);
+
+    try {
+      const token = tokenOverride ?? (await getAccessToken());
+
+      if (!token) {
+        throw new Error("No hay una sesión válida para consultar la ingesta.");
+      }
+
+      const job = await fetchIngestJobStatus(token, jobId);
+      const nextJob = toIngestJobView(job);
+      setCurrentIngestJob(nextJob);
+
+      if (job.status === "done" && job.result) {
+        toast.success(formatIngestResult(job.result));
+        await loadDashboard(true);
+      }
+
+      if (job.status === "failed") {
+        const message = job.error || "La ingesta falló.";
+        setIngestError(message);
+        setIngestErrorRequestId(job.requestId ?? null);
+        toast.error(job.requestId ? `${message} (Reference ID: ${job.requestId})` : message);
+      }
+    } catch (statusError) {
+      const { message, requestId } = getBackendErrorInfo(
+        statusError,
+        "No se pudo consultar el estado de la ingesta.",
+      );
+
+      setIngestError(message);
+      setIngestErrorRequestId(requestId);
+      toast.error(requestId ? `${message} (Reference ID: ${requestId})` : message);
+    } finally {
+      setRefreshingIngestJob(false);
+    }
+  }
+
   async function handleIngest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!ingestUrlValue.trim()) {
+    const submittedUrl = ingestUrlValue.trim();
+
+    if (!submittedUrl) {
       return;
     }
 
@@ -109,15 +204,17 @@ export function AdminShell() {
         throw new Error("No hay una sesión válida para iniciar la ingesta.");
       }
 
-      const result = await ingestDocument(token, ingestUrlValue.trim());
-      const message =
-        result.status === "partial_success"
-          ? `Ingesta parcial. ${result.chunks_inserted} chunks insertados, ${result.chunks_failed} fallaron.`
-          : `Ingesta completada. ${result.chunks_inserted} chunks insertados.`;
+      const result = await ingestDocument(token, submittedUrl);
 
-      toast.success(message);
+      setCurrentIngestJob({
+        jobId: result.jobId,
+        status: result.status,
+        requestId: result.requestId,
+        url: submittedUrl,
+      });
+      toast.success(`Ingesta encolada. Job ${result.jobId}.`);
       setIngestUrlValue("");
-      await loadDashboard(true);
+      await refreshIngestJobStatus(result.jobId, token);
     } catch (ingestError) {
       const { message, requestId } = getBackendErrorInfo(
         ingestError,
@@ -233,8 +330,54 @@ export function AdminShell() {
             />
             <Button className="w-full" disabled={ingesting} type="submit">
               <UploadCloud className="h-4 w-4" />
-              {ingesting ? "Ingeriendo..." : "Ingerir documento"}
+              {ingesting ? "Encolando..." : "Ingerir documento"}
             </Button>
+
+            {currentIngestJob ? (
+              <div className="surface-soft rounded-[1.5rem] px-4 py-4 text-sm text-white/75">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="default">
+                        {getIngestStatusLabel(currentIngestJob.status)}
+                      </Badge>
+                      <span className="font-mono text-xs text-white/65">
+                        {currentIngestJob.jobId}
+                      </span>
+                    </div>
+                    {currentIngestJob.attempts !== undefined ? (
+                      <p className="mt-2 text-xs text-white/65">
+                        Intentos: {currentIngestJob.attempts}
+                        {currentIngestJob.maxAttempts ? `/${currentIngestJob.maxAttempts}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button
+                    disabled={refreshingIngestJob}
+                    onClick={() => void refreshIngestJobStatus(currentIngestJob.jobId)}
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${refreshingIngestJob ? "animate-spin" : ""}`}
+                    />
+                    Estado
+                  </Button>
+                </div>
+
+                {currentIngestJob.result ? (
+                  <p className="mt-3 text-xs text-white/70">
+                    {formatIngestResult(currentIngestJob.result)}
+                  </p>
+                ) : null}
+                {currentIngestJob.error ? (
+                  <p className="mt-3 text-xs text-[var(--danger)]">
+                    {currentIngestJob.error}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             {ingestError ? (
               <div className="text-sm text-[var(--danger)]" role="alert">

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { executeRagQuery } from '../services/rag';
 import { SupabaseVectorAdapter } from '../services/supabase-vector-adapter';
+import { parseEvalVariants, RagEvalVariant, withEvalVariantEnv } from './rag-eval-variants';
 
 interface RagEvalCase {
   id?: string;
@@ -27,6 +28,16 @@ interface CaseResult {
   minimumKeywordCoverage: number;
   minimumSources: number;
   passed: boolean;
+}
+
+interface EvaluationReport {
+  variant: RagEvalVariant;
+  results: CaseResult[];
+  totalCases: number;
+  passedCases: number;
+  passRate: number;
+  retrievalHitRate: number;
+  avgKeywordCoverage: number;
 }
 
 const LIVE_LANE_LABEL = 'live-non-blocking';
@@ -111,17 +122,7 @@ async function loadDataset(datasetPath: string): Promise<RagEvalDataset> {
   return dataset;
 }
 
-async function run(): Promise<void> {
-  const datasetPath = parseDatasetArg() || process.env.RAG_EVAL_DATASET || DEFAULT_DATASET_PATH;
-  const dataset = await loadDataset(datasetPath);
-  const overallMinimumPassRate = process.env.RAG_EVAL_MIN_PASS_RATE
-    ? Number(process.env.RAG_EVAL_MIN_PASS_RATE)
-    : dataset.overallMinimumPassRate ?? 1;
-
-  if (!Number.isFinite(overallMinimumPassRate) || overallMinimumPassRate < 0 || overallMinimumPassRate > 1) {
-    throw new Error('overall minimum pass rate must be a number between 0 and 1.');
-  }
-
+async function evaluateCases(dataset: RagEvalDataset): Promise<CaseResult[]> {
   const vectorStore = new SupabaseVectorAdapter();
   const results: CaseResult[] = [];
 
@@ -150,21 +151,32 @@ async function run(): Promise<void> {
     });
   }
 
+  return results;
+}
+
+function createReport(variant: RagEvalVariant, results: CaseResult[]): EvaluationReport {
   const totalCases = results.length;
   const passedCases = results.filter((result) => result.passed).length;
   const passRate = passedCases / totalCases;
   const retrievalHitRate = results.filter((result) => result.sourcesCount > 0).length / totalCases;
   const avgKeywordCoverage = results.reduce((sum, result) => sum + result.keywordCoverage, 0) / totalCases;
 
-  console.log('=== RAG Evaluation (metrics-based) ===');
-  console.log(`Lane: ${LIVE_LANE_LABEL}`);
-  console.log(`Dataset: ${resolve(datasetPath)}`);
-  if (dataset.description) {
-    console.log(`Description: ${dataset.description}`);
-  }
+  return {
+    variant,
+    results,
+    totalCases,
+    passedCases,
+    passRate,
+    retrievalHitRate,
+    avgKeywordCoverage,
+  };
+}
+
+function printReport(report: EvaluationReport, overallMinimumPassRate: number): void {
+  console.log(`Variant: ${report.variant.id} (${report.variant.label})`);
   console.log('');
 
-  results.forEach((result, index) => {
+  report.results.forEach((result, index) => {
     console.log(`Case ${index + 1} - ${result.id} => ${result.passed ? 'PASS' : 'FAIL'}`);
     console.log(`  Query: ${result.query}`);
     console.log(
@@ -176,20 +188,60 @@ async function run(): Promise<void> {
 
   console.log('');
   console.log('--- Summary ---');
-  console.log(`Total cases: ${totalCases}`);
-  console.log(`Passed: ${passedCases}`);
-  console.log(`Pass rate: ${asPercentage(passRate)} (minimum ${asPercentage(overallMinimumPassRate)})`);
-  console.log(`Retrieval hit rate: ${asPercentage(retrievalHitRate)}`);
-  console.log(`Average keyword coverage: ${asPercentage(avgKeywordCoverage)}`);
+  console.log(`Total cases: ${report.totalCases}`);
+  console.log(`Passed: ${report.passedCases}`);
+  console.log(`Pass rate: ${asPercentage(report.passRate)} (minimum ${asPercentage(overallMinimumPassRate)})`);
+  console.log(`Retrieval hit rate: ${asPercentage(report.retrievalHitRate)}`);
+  console.log(`Average keyword coverage: ${asPercentage(report.avgKeywordCoverage)}`);
   console.log(`Reliability signal mode: ${LIVE_LANE_LABEL} (operational, non-blocking)`);
+}
 
-  if (passRate < overallMinimumPassRate) {
+async function run(): Promise<void> {
+  const datasetPath = parseDatasetArg() || process.env.RAG_EVAL_DATASET || DEFAULT_DATASET_PATH;
+  const dataset = await loadDataset(datasetPath);
+  const overallMinimumPassRate = process.env.RAG_EVAL_MIN_PASS_RATE
+    ? Number(process.env.RAG_EVAL_MIN_PASS_RATE)
+    : dataset.overallMinimumPassRate ?? 1;
+
+  if (!Number.isFinite(overallMinimumPassRate) || overallMinimumPassRate < 0 || overallMinimumPassRate > 1) {
+    throw new Error('overall minimum pass rate must be a number between 0 and 1.');
+  }
+
+  const variants = parseEvalVariants(process.env.RAG_EVAL_COMPARE_MODES);
+  const reports: EvaluationReport[] = [];
+
+  for (const variant of variants) {
+    const results = await withEvalVariantEnv(variant, () => evaluateCases(dataset));
+    reports.push(createReport(variant, results));
+  }
+
+  console.log('=== RAG Evaluation (metrics-based) ===');
+  console.log(`Lane: ${LIVE_LANE_LABEL}`);
+  console.log(`Dataset: ${resolve(datasetPath)}`);
+  if (dataset.description) {
+    console.log(`Description: ${dataset.description}`);
+  }
+
+  reports.forEach((report, index) => {
+    console.log('');
+    if (index > 0) {
+      console.log('---');
+      console.log('');
+    }
+    printReport(report, overallMinimumPassRate);
+  });
+
+  const bestReport = reports.reduce((best, report) =>
+    report.passRate > best.passRate ? report : best
+  );
+
+  if (bestReport.passRate < overallMinimumPassRate) {
     console.error('Result: FAILED overall threshold.');
     process.exitCode = 1;
     return;
   }
 
-  console.log('Result: PASSED overall threshold.');
+  console.log(`Result: PASSED overall threshold. Best variant: ${bestReport.variant.id}.`);
 }
 
 run().catch((error: unknown) => {

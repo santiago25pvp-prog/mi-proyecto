@@ -108,3 +108,36 @@ test('falls back from hybrid to vector retrieval when hybrid RPC fails', async (
   assert.ok(telemetryEvents.includes('retrieval_mode_selected'));
   assert.ok(telemetryEvents.includes('retrieval_hybrid_fallback_vector'));
 });
+
+test('reranks retrieved candidates when rerank is enabled', async (t) => {
+  process.env.RAG_RETRIEVAL_MODE = 'vector';
+  process.env.RAG_VECTOR_WEIGHT = '0.7';
+  process.env.RAG_FTS_WEIGHT = '0.3';
+  process.env.RAG_RERANK_ENABLED = 'true';
+  process.env.RAG_RERANK_OVERLAP_WEIGHT = '1';
+  process.env.RAG_RERANK_SIMILARITY_WEIGHT = '0';
+  process.env.RAG_RERANK_FRESHNESS_WEIGHT = '0';
+
+  t.mock.method(embeddingService, 'getEmbedding', async () => [0.77, 0.88]);
+
+  t.mock.method(supabase, 'rpc', async () => ({
+    data: [
+      createRpcRow({
+        id: 1,
+        content: 'Documento general sin terminos relevantes',
+        similarity: 0.99,
+      }),
+      createRpcRow({
+        id: 2,
+        content: 'Supabase JWT auth con tokens y sesiones',
+        similarity: 0.2,
+      }),
+    ],
+    error: null,
+  }));
+
+  const adapter = new SupabaseVectorAdapter();
+  const result = await adapter.searchDocuments('Supabase JWT auth', 2);
+
+  assert.deepEqual(result.map((item) => item.document.id), [2, 1]);
+});

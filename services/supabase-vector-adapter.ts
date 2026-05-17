@@ -3,7 +3,8 @@ import { VectorStore, SearchResult, InsertResult, Document } from './vector-stor
 import { getEmbedding } from './embedding';
 import { TaskType } from '@google/generative-ai';
 import logger, { logReliabilityEvent } from './logger';
-import { getRetrievalConfig } from './retrieval-config';
+import { getRetrievalConfig, RetrievalConfig } from './retrieval-config';
+import { rerankSearchResults } from './retrieval-rerank';
 
 interface SupabaseMatchDocumentRow {
   id: number;
@@ -44,9 +45,7 @@ export class SupabaseVectorAdapter implements VectorStore {
     return this.mapSearchResults(data as SupabaseMatchDocumentRow[] | null);
   }
 
-  private async searchHybrid(query: string, embedding: number[], limit: number): Promise<SearchResult[]> {
-    const config = getRetrievalConfig();
-
+  private async searchHybrid(query: string, embedding: number[], limit: number, config: RetrievalConfig): Promise<SearchResult[]> {
     const { data, error } = await supabase.rpc('match_documents_hybrid', {
       query_text: query,
       query_embedding: embedding,
@@ -61,6 +60,14 @@ export class SupabaseVectorAdapter implements VectorStore {
     }
 
     return this.mapSearchResults(data as SupabaseMatchDocumentRow[] | null);
+  }
+
+  private applyRerank(query: string, results: SearchResult[], config: RetrievalConfig): SearchResult[] {
+    if (!config.rerank.enabled) {
+      return results;
+    }
+
+    return rerankSearchResults(query, results, config.rerank);
   }
 
   async searchDocuments(query: string, limit: number): Promise<SearchResult[]> {
@@ -83,7 +90,8 @@ export class SupabaseVectorAdapter implements VectorStore {
 
     if (config.mode === 'hybrid') {
       try {
-        return await this.searchHybrid(query, embedding, limit);
+        const results = await this.searchHybrid(query, embedding, limit, config);
+        return this.applyRerank(query, results, config);
       } catch (error) {
         logger.warn('retrieval_hybrid_fallback_vector', {
           reason: error instanceof Error ? error.message : String(error),
@@ -101,11 +109,13 @@ export class SupabaseVectorAdapter implements VectorStore {
             reason: error instanceof Error ? error.message : String(error),
           },
         });
-        return this.searchVector(embedding, limit);
+        const results = await this.searchVector(embedding, limit);
+        return this.applyRerank(query, results, config);
       }
     }
 
-    return this.searchVector(embedding, limit);
+    const results = await this.searchVector(embedding, limit);
+    return this.applyRerank(query, results, config);
   }
 
   async insertDocument(docData: { content: string; embedding: number[]; metadata: Record<string, unknown> }): Promise<InsertResult> {

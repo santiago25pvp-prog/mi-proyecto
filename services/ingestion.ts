@@ -3,8 +3,9 @@ import { textSplitter } from './splitter';
 import { getEmbeddings } from './embedding';
 import { VectorStore } from './vector-store.interface';
 import { TaskType } from '@google/generative-ai';
+import type { IngestResult } from './ingest-jobs';
 
-export const ingestUrl = async (vectorStore: VectorStore, url: string) => {
+export const ingestUrl = async (vectorStore: VectorStore, url: string): Promise<IngestResult> => {
     const text = await documentLoader(url);
     const chunks = textSplitter(text);
     let chunksInserted = 0;
