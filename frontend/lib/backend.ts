@@ -5,6 +5,7 @@ import type {
   ChatStreamDoneEvent,
   ChatStreamTokenEvent,
   DeleteDocumentResponse,
+  IngestJobStatusResponse,
   IngestResponse,
 } from "@/lib/types";
 import type { BackendErrorMetadata } from "@/lib/types";
@@ -333,6 +334,10 @@ export function ingestDocument(token: string, url: string) {
     method: "POST",
     body: JSON.stringify({ url }),
   });
+}
+
+export function fetchIngestJobStatus(token: string, jobId: string) {
+  return request<IngestJobStatusResponse>(`/ingest/${encodeURIComponent(jobId)}`, token);
 }
 
 export function fetchAdminStats(token: string) {

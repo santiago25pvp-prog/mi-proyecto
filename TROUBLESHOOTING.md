@@ -9,6 +9,7 @@ This guide covers common failures in ingestion, embeddings, retrieval, frontend 
 - Verify the target URL is reachable from the backend host (no VPN/firewall blocks).
 - Retry with a smaller page or a page with fewer redirects to isolate remote latency.
 - Check backend logs for scraper timeout or payload limit warnings.
+- `POST /ingest` should return `202` quickly; use `GET /ingest/:jobId` to inspect long-running jobs.
 - If the source is consistently slow, split ingestion by URL section and process incrementally.
 
 ### Symptom: Extraction failed or empty content
@@ -38,7 +39,7 @@ This guide covers common failures in ingestion, embeddings, retrieval, frontend 
 
 ### Symptom: No results returned
 
-- Confirm documents were ingested successfully (`chunks_inserted > 0`).
+- Confirm the ingestion job finished with `status: "done"` and `result.chunks_inserted > 0`.
 - Verify `match_documents` function exists and points to the correct table/column.
 - Check that embeddings were stored for the ingested chunks (not null/empty vectors).
 - Try a broader query to rule out overly specific wording.

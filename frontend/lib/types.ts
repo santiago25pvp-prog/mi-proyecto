@@ -59,10 +59,31 @@ export interface AdminStats extends ApiResponseMeta {
   requestCount: number | null;
 }
 
-export interface IngestResponse extends ApiResponseMeta {
+export type IngestJobStatus = "queued" | "running" | "failed" | "done";
+
+export interface IngestResult {
   status: "success" | "partial_success";
   chunks_inserted: number;
   chunks_failed: number;
+}
+
+export interface IngestResponse extends ApiResponseMeta {
+  jobId: string;
+  status: IngestJobStatus;
+}
+
+export interface IngestJobStatusResponse extends ApiResponseMeta {
+  jobId: string;
+  status: IngestJobStatus;
+  url: string;
+  attempts: number;
+  maxAttempts: number;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  result?: IngestResult;
+  error?: string;
 }
 
 export interface DeleteDocumentResponse extends ApiResponseMeta {

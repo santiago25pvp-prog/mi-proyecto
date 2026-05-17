@@ -23,6 +23,7 @@ const { ingestHandler, queryHandler } = apiModule;
 
 type RestoreFn = () => void;
 type AuthResult = Promise<{ data: { user: any }; error: any }>;
+type IngestUrlResult = Awaited<ReturnType<typeof ingestionService.ingestUrl>>;
 
 async function startServer(env?: NodeJS.ProcessEnv) {
   return await new Promise<{ server: http.Server; baseUrl: string }>((resolve) => {
@@ -212,6 +213,34 @@ async function postJson(baseUrl: string, path: string, body: unknown, token?: st
   });
 }
 
+function createDeferredIngestResult() {
+  let resolveIngest: (value: IngestUrlResult) => void = () => undefined;
+  const promise = new Promise<IngestUrlResult>((resolve) => {
+    resolveIngest = resolve;
+  });
+
+  return {
+    promise,
+    resolve: resolveIngest,
+  };
+}
+
+async function getJson(baseUrl: string, path: string, token?: string) {
+  return await fetch(`${baseUrl}${path}`, {
+    method: 'GET',
+    headers: token ? authHeaders(token) : { 'Content-Type': 'application/json' },
+  });
+}
+
+async function waitIngestQueueForTests() {
+  await apiModule.ingestJobQueue.waitForIdleForTests();
+}
+
+async function resetIngestQueueForTests() {
+  await waitIngestQueueForTests();
+  apiModule.ingestJobQueue.resetForTests();
+}
+
 async function postSse(baseUrl: string, path: string, body: unknown, token?: string) {
   return await fetch(`${baseUrl}${path}`, {
     method: 'POST',
@@ -256,6 +285,7 @@ const protectedRoutes = [
     name: '/ingest',
     path: '/ingest',
     body: { url: 'https://example.com' },
+    successStatus: 202,
     mockSuccess: () => [
       mockIngestUrl(async () => ({
         status: 'success',
@@ -268,6 +298,7 @@ const protectedRoutes = [
     name: '/query',
     path: '/query',
     body: { query: 'hola' },
+    successStatus: 200,
     mockSuccess: () => [
       mockExecuteRagQuery(async () => ({
         answer: 'respuesta',
@@ -279,6 +310,7 @@ const protectedRoutes = [
     name: '/query/stream',
     path: '/query/stream',
     body: { query: 'hola' },
+    successStatus: 200,
     mockSuccess: () => [
       mockExecuteRagQuery(async () => ({
         answer: 'respuesta',
@@ -371,7 +403,7 @@ test('protected API routes enforce authentication and authenticated rate limits'
       try {
         for (let index = 0; index < 50; index += 1) {
           const response = await postJson(baseUrl, route.path, route.body, userAToken);
-          assert.equal(response.status, 200);
+          assert.equal(response.status, route.successStatus);
         }
 
         const limitedResponse = await postJson(baseUrl, route.path, route.body, userAToken);
@@ -382,8 +414,12 @@ test('protected API routes enforce authentication and authenticated rate limits'
         });
 
         const otherUserResponse = await postJson(baseUrl, route.path, route.body, userBToken);
-        assert.equal(otherUserResponse.status, 200);
+        assert.equal(otherUserResponse.status, route.successStatus);
       } finally {
+        if (route.path === '/ingest') {
+          await resetIngestQueueForTests();
+        }
+
         restoreAll(restores);
         await stopServer(server);
       }
@@ -942,149 +978,131 @@ test('/ingest route responses', async (t) => {
     }
   });
 
-  await t.test('returns success counts when every chunk is inserted', async () => {
-    const insertedPayloads: any[] = [];
+  await t.test('queues ingestion and exposes status by job id', async () => {
+    const deferred = createDeferredIngestResult();
     const restores = [
       mockGetUser(async () => ({
-        data: { user: validUser('ingest-success') },
+        data: { user: validUser('ingest-queue') },
         error: null,
       })),
-      mockDocumentLoader(async () => 'raw document text'),
-      mockTextSplitter(() => ['chunk-1', 'chunk-2']),
-      mockGetEmbeddings(async (texts: string[]) => texts.map((chunk) => [chunk.length, 1])),
-      mockSupabaseInsert(async (table, values) => {
-        insertedPayloads.push({ table, values });
-        return { data: { id: insertedPayloads.length }, error: null };
-      }),
+      mockIngestUrl(async () => deferred.promise),
     ];
 
     const { server, baseUrl } = await startServer();
 
     try {
-      const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/docs' }, 'ingest-success-token');
+      const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/docs' }, 'ingest-queue-token');
       const payload = await response.json();
 
-      assert.equal(response.status, 200);
+      assert.equal(response.status, 202);
+      assert.equal(typeof payload.jobId, 'string');
       assertResponseWithRequestId(payload, {
+        jobId: payload.jobId,
+        status: 'queued',
+      });
+
+      const statusResponse = await getJson(baseUrl, `/ingest/${payload.jobId}`, 'ingest-queue-token');
+      const statusPayload = await statusResponse.json();
+
+      assert.equal(statusResponse.status, 200);
+      assert.equal(statusPayload.jobId, payload.jobId);
+      assert.equal(statusPayload.url, 'https://example.com/docs');
+      assert.ok(['queued', 'running'].includes(statusPayload.status));
+      assert.equal(typeof statusPayload.attempts, 'number');
+      assert.equal(typeof statusPayload.requestId, 'string');
+
+      deferred.resolve({
         status: 'success',
         chunks_inserted: 2,
         chunks_failed: 0,
       });
-      assert.deepEqual(insertedPayloads, [
-        {
-          table: 'documents',
-          values: {
-            content: 'chunk-1',
-            embedding: [7, 1],
-            metadata: { url: 'https://example.com/docs' },
-          },
+      await waitIngestQueueForTests();
+
+      const completedResponse = await getJson(baseUrl, `/ingest/${payload.jobId}`, 'ingest-queue-token');
+      const completedPayload = await completedResponse.json();
+
+      assert.equal(completedResponse.status, 200);
+      assertResponseWithRequestId(completedPayload, {
+        jobId: payload.jobId,
+        status: 'done',
+        url: 'https://example.com/docs',
+        attempts: 1,
+        maxAttempts: 3,
+        createdAt: completedPayload.createdAt,
+        updatedAt: completedPayload.updatedAt,
+        startedAt: completedPayload.startedAt,
+        completedAt: completedPayload.completedAt,
+        result: {
+          status: 'success',
+          chunks_inserted: 2,
+          chunks_failed: 0,
         },
-        {
-          table: 'documents',
-          values: {
-            content: 'chunk-2',
-            embedding: [7, 1],
-            metadata: { url: 'https://example.com/docs' },
-          },
-        },
-      ]);
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns partial_success when some chunk inserts fail', async () => {
-    let insertCount = 0;
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('ingest-partial') },
-        error: null,
-      })),
-      mockDocumentLoader(async () => 'raw document text'),
-      mockTextSplitter(() => ['chunk-1', 'chunk-2']),
-      mockGetEmbeddings(async () => [[1, 2, 3], [1, 2, 3]]),
-      mockSupabaseInsert(async () => {
-        insertCount += 1;
-
-        return insertCount === 1
-          ? { data: { id: 1 }, error: null }
-          : { data: null, error: { message: 'insert failed' } };
-      }),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/partial' }, 'ingest-partial-token');
-      const payload = await response.json();
-
-      assert.equal(response.status, 200);
-      assertResponseWithRequestId(payload, {
-        status: 'partial_success',
-        chunks_inserted: 1,
-        chunks_failed: 1,
       });
     } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns zero counts when the scraper yields no text chunks', async () => {
-    let embeddingCalls = 0;
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('ingest-empty') },
-        error: null,
-      })),
-      mockDocumentLoader(async () => ''),
-      mockTextSplitter(() => []),
-      mockGetEmbedding(async () => {
-        embeddingCalls += 1;
-        return [1];
-      }),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/empty' }, 'ingest-empty-token');
-      const payload = await response.json();
-
-      assert.equal(response.status, 200);
-      assertResponseWithRequestId(payload, {
+      deferred.resolve({
         status: 'success',
         chunks_inserted: 0,
         chunks_failed: 0,
       });
-      assert.equal(embeddingCalls, 0);
-    } finally {
+
+      await resetIngestQueueForTests();
       restoreAll(restores);
       await stopServer(server);
     }
   });
 
-  await t.test('returns 500 when the scraper fails', async () => {
+  await t.test('returns the active job when the same URL is queued twice', async () => {
+    const deferred = createDeferredIngestResult();
     const restores = [
       mockGetUser(async () => ({
-        data: { user: validUser('ingest-scraper-error') },
+        data: { user: validUser('ingest-idempotent') },
         error: null,
       })),
-      mockDocumentLoader(async () => {
-        throw new Error('scraper failed');
-      }),
+      mockIngestUrl(async () => deferred.promise),
     ];
 
     const { server, baseUrl } = await startServer();
 
     try {
-      const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/fail' }, 'ingest-scraper-error-token');
+      const firstResponse = await postJson(baseUrl, '/ingest', { url: 'https://example.com/same' }, 'ingest-idempotent-token');
+      const firstPayload = await firstResponse.json();
+      const secondResponse = await postJson(baseUrl, '/ingest', { url: 'https://example.com/same' }, 'ingest-idempotent-token');
+      const secondPayload = await secondResponse.json();
+
+      assert.equal(firstResponse.status, 202);
+      assert.equal(secondResponse.status, 202);
+      assert.equal(secondPayload.jobId, firstPayload.jobId);
+      assert.ok(['queued', 'running'].includes(secondPayload.status));
+    } finally {
+      deferred.resolve({
+        status: 'success',
+        chunks_inserted: 0,
+        chunks_failed: 0,
+      });
+
+      await resetIngestQueueForTests();
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
+  await t.test('returns 404 when job status does not exist', async () => {
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('ingest-missing-job') },
+        error: null,
+      })),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await getJson(baseUrl, '/ingest/job-missing', 'ingest-missing-job-token');
       const payload = await response.json();
 
-      assert.equal(response.status, 500);
+      assert.equal(response.status, 404);
       assertResponseWithRequestId(payload, {
-        error: 'Failed to ingest URL',
+        error: 'Ingest job not found',
       });
     } finally {
       restoreAll(restores);
@@ -1092,45 +1110,12 @@ test('/ingest route responses', async (t) => {
     }
   });
 
-  await t.test('returns 500 when embedding generation fails', async () => {
-    const restores = [
-      mockGetUser(async () => ({
-        data: { user: validUser('ingest-embedding-error') },
-        error: null,
-      })),
-      mockDocumentLoader(async () => 'raw document text'),
-      mockTextSplitter(() => ['chunk-1']),
-      mockGetEmbeddings(async () => {
-        throw new Error('embedding failed');
-      }),
-    ];
-
-    const { server, baseUrl } = await startServer();
-
-    try {
-      const response = await postJson(baseUrl, '/ingest', { url: 'https://example.com/embed' }, 'ingest-embedding-error-token');
-      const payload = await response.json();
-
-      assert.equal(response.status, 500);
-      assertResponseWithRequestId(payload, {
-        error: 'Failed to ingest URL',
-      });
-    } finally {
-      restoreAll(restores);
-      await stopServer(server);
-    }
-  });
-
-  await t.test('returns 500 when a malformed URL causes scraping to fail', async () => {
+  await t.test('returns 400 when a malformed URL is submitted', async () => {
     const restores = [
       mockGetUser(async () => ({
         data: { user: validUser('ingest-invalid-url') },
         error: null,
       })),
-      mockDocumentLoader(async (url: string) => {
-        assert.equal(url, 'not-a-url');
-        throw new Error('Invalid URL');
-      }),
     ];
 
     const { server, baseUrl } = await startServer();

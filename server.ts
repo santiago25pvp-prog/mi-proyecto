@@ -3,7 +3,7 @@ import express from 'express';
 import logger from './services/logger';
 import { authMiddleware } from './middleware/authMiddleware';
 import { publicLimiter, authLimiter } from './middleware/rateLimiter';
-import { ingestHandler, queryHandler, queryStreamHandler } from './controllers/api';
+import { ingestHandler, ingestStatusHandler, queryHandler, queryStreamHandler } from './controllers/api';
 import adminRoutes from './routes/admin';
 import { validateRequest } from './middleware/requestValidation';
 import { checkDependencies } from './services/health';
@@ -86,6 +86,13 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
       { source: 'body', field: 'url', type: 'url', required: true, requiredMessage: 'URL is required', message: 'url must be a valid http or https URL' },
     ]),
     ingestHandler,
+  );
+
+  app.get(
+    '/ingest/:jobId',
+    authMiddleware,
+    authLimiter,
+    ingestStatusHandler,
   );
 
   app.post(

@@ -20,7 +20,7 @@
 - `POST /query` receives `query` and returns JSON in this format: `{ "requestId": string, "answer": string, "sources": [] }`.
 - `POST /query/stream` returns Server-Sent Events (`text/event-stream`) with incremental `token` chunks, final `done`, and structured `error` events.
 - During transient provider exhaustion, `POST /query` returns `503` with additive compatibility fields: `code`, `degraded`, `retryable`, `retryAfterMs`, while preserving `error` and `requestId`.
-- `POST /ingest` exposes the document ingestion pipeline and reports successful and failed insertions.
+- `POST /ingest` queues document ingestion and `GET /ingest/:jobId` exposes job status.
 - Administrative endpoints allow listing documents, deleting documents, and checking stats.
 
 ### Authentication and Authorization
@@ -263,7 +263,7 @@ Default ports:
 
 - `controllers/`
   Contains backend HTTP handlers.
-  - `api.ts`: exposes `/ingest`, `/query`, and `/query/stream`.
+  - `api.ts`: exposes `/ingest`, `/ingest/:jobId`, `/query`, and `/query/stream`.
   - `admin.ts`: exposes administrative operations for documents and stats.
 
 - `services/`
@@ -415,36 +415,66 @@ Default ports:
 
 - Parameters:
   - `url` (string, required): URL to scrape and index.
-- `200 OK` response when full ingestion succeeds:
+- `202 Accepted` response when the job is queued:
 
 ```json
 {
-  "status": "success",
-  "chunks_inserted": 2,
-  "chunks_failed": 0
+  "requestId": "6b0d4fd3-bb0a-40df-82d1-9a33d9c6bdc4",
+  "jobId": "7c941c1d-6821-4f4e-a512-9b2cb54fd85f",
+  "status": "queued"
 }
 ```
 
-- `200 OK` response when ingestion is partial:
-
-```json
-{
-  "status": "partial_success",
-  "chunks_inserted": 1,
-  "chunks_failed": 1
-}
-```
-
+- The backend processes the job asynchronously with in-memory status tracking and retries transient failures.
+- If the same URL is already `queued` or `running`, the active `jobId` is reused.
 - `400 Bad Request` response:
 
 ```json
-{ "error": "URL is required" }
+{ "error": "Invalid request", "details": ["URL is required"] }
 ```
 
-- `500 Internal Server Error` response:
+### GET /ingest/:jobId
+
+- Method: `GET`
+- Auth: required
+- Parameters:
+  - `jobId` (string, required): ID returned by `POST /ingest`.
+- `200 OK` response while running:
 
 ```json
-{ "error": "Failed to ingest URL" }
+{
+  "requestId": "87bb63d5-8cf8-45cf-84e7-3933ae7d8d9b",
+  "jobId": "7c941c1d-6821-4f4e-a512-9b2cb54fd85f",
+  "status": "running",
+  "url": "https://example.com/docs",
+  "attempts": 1,
+  "maxAttempts": 3,
+  "createdAt": "2026-05-17T23:20:00.000Z",
+  "updatedAt": "2026-05-17T23:20:01.000Z",
+  "startedAt": "2026-05-17T23:20:01.000Z"
+}
+```
+
+- `200 OK` response when complete:
+
+```json
+{
+  "requestId": "87bb63d5-8cf8-45cf-84e7-3933ae7d8d9b",
+  "jobId": "7c941c1d-6821-4f4e-a512-9b2cb54fd85f",
+  "status": "done",
+  "url": "https://example.com/docs",
+  "attempts": 1,
+  "maxAttempts": 3,
+  "createdAt": "2026-05-17T23:20:00.000Z",
+  "updatedAt": "2026-05-17T23:20:08.000Z",
+  "startedAt": "2026-05-17T23:20:01.000Z",
+  "completedAt": "2026-05-17T23:20:08.000Z",
+  "result": {
+    "status": "success",
+    "chunks_inserted": 2,
+    "chunks_failed": 0
+  }
+}
 ```
 
 ### GET /admin/documents
