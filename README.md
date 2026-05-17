@@ -11,6 +11,7 @@
 - Generates embeddings with `gemini-embedding-001` at `3072` dimensions.
 - Stores content, metadata, and embeddings in Supabase using `pgvector`.
 - Retrieves relevant documents through the SQL function `match_documents`.
+- Supports hybrid retrieval v1 with feature flag (`vector` legacy mode or `hybrid` vector + FTS fusion).
 - Generates the final answer with `gemini-2.5-flash` using retrieved context.
 
 ### Unified API
@@ -168,7 +169,16 @@ Notes:
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `GEMINI_API_KEY` are required for the backend.
 - `SUPABASE_ANON_KEY` is not listed in `.env.example`, but it is useful for auth scripts in `scripts/get-token.ts`.
 - `PORT` is optional; by default the backend listens on `3001`.
+- `RAG_RETRIEVAL_MODE` controls retrieval mode: `vector` (default, legacy) or `hybrid`.
+- `RAG_VECTOR_WEIGHT` and `RAG_FTS_WEIGHT` control hybrid weighting (defaults `0.7` and `0.3`). Invalid/missing values log warnings and safely fallback to defaults.
 - In `production`, `ALLOWED_ORIGIN` is required and backend startup fails if it is missing.
+
+Hybrid retrieval v1 notes:
+
+- Hybrid mode uses SQL RPC `match_documents_hybrid` with Reciprocal Rank Fusion over vector and FTS ranks.
+- If hybrid RPC fails (missing function/index/runtime DB issue), backend degrades to vector-only retrieval and logs `retrieval_hybrid_fallback_vector`.
+- Telemetry includes `retrieval_mode_selected` and `retrieval_hybrid_fallback_vector` events.
+- v1 limitation: lexical matching uses English text search configuration (`websearch_to_tsquery('english', ...)`).
 
 Create the `frontend/.env.local` file:
 
@@ -247,7 +257,8 @@ Default ports:
   - `scraper.ts`: downloads and cleans HTML.
   - `splitter.ts`: splits text into chunks.
   - `embedding.ts`: creates Gemini embeddings, with LRU cache and batch support for ingestion.
-  - `retrieval.ts`: executes vector search in Supabase.
+  - `retrieval.ts`: delegates retrieval to the configured vector store adapter.
+  - `retrieval-config.ts`: resolves retrieval mode and safe hybrid weights from env vars.
   - `ingestion.ts`: orchestrates scraping, splitting, embeddings, and insertions.
   - `vector-db.ts`: creates backend Supabase client.
   - `adminService.ts`: lists, deletes, and summarizes documents.
@@ -256,6 +267,7 @@ Default ports:
   Contains vector database definition.
   - `001_init_rag.sql`: creates `vector` extension and `documents` table.
   - `002_reconcile_document_embeddings.sql`: normalizes embeddings to `vector(3072)` and creates the `match_documents` function.
+  - `003_hybrid_retrieval_v1.sql`: adds FTS generated column/index and creates `match_documents_hybrid` without changing legacy `match_documents`.
 
 - `frontend/`
   Next.js app that consumes the API and Supabase Auth.
