@@ -212,6 +212,45 @@ async function postJson(baseUrl: string, path: string, body: unknown, token?: st
   });
 }
 
+async function postSse(baseUrl: string, path: string, body: unknown, token?: string) {
+  return await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? authHeaders(token) : { 'Content-Type': 'application/json' }),
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+type ParsedSseEvent = {
+  event: string;
+  payload: Record<string, unknown>;
+};
+
+function parseSsePayload(raw: string): ParsedSseEvent[] {
+  return raw
+    .split('\n\n')
+    .map((block) => {
+      const eventMatch = block.match(/^event:\s*(\w+)$/m);
+      const dataMatch = block.match(/^data:\s*(.+)$/m);
+
+      if (!eventMatch || !dataMatch) {
+        return null;
+      }
+
+      try {
+        return {
+          event: eventMatch[1],
+          payload: JSON.parse(dataMatch[1]),
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter((entry): entry is ParsedSseEvent => entry !== null);
+}
+
 const protectedRoutes = [
   {
     name: '/ingest',
@@ -228,6 +267,17 @@ const protectedRoutes = [
   {
     name: '/query',
     path: '/query',
+    body: { query: 'hola' },
+    mockSuccess: () => [
+      mockExecuteRagQuery(async () => ({
+        answer: 'respuesta',
+        sources: [],
+      })),
+    ],
+  },
+  {
+    name: '/query/stream',
+    path: '/query/stream',
     body: { query: 'hola' },
     mockSuccess: () => [
       mockExecuteRagQuery(async () => ({
@@ -764,6 +814,76 @@ test('/query route responses', async (t) => {
       assert.equal(payload.retryAfterMs, 650);
       assert.equal(typeof payload.error, 'string');
       assert.equal(typeof payload.requestId, 'string');
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+});
+
+test('/query/stream route responses', async (t) => {
+  await t.test('streams token and done events on success', async () => {
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('query-stream-success') },
+        error: null,
+      })),
+      mockExecuteRagQuery(async () => ({
+        answer: 'Respuesta consolidada',
+        sources: [
+          { name: 'Manual', content: 'Contenido' },
+        ],
+      })),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postSse(baseUrl, '/query/stream', { query: 'consulta' }, 'query-stream-token');
+      const raw = await response.text();
+      const events = parseSsePayload(raw);
+
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('content-type'), 'text/event-stream; charset=utf-8');
+      assert.ok(events.some((entry) => entry.event === 'token'));
+
+      const doneEvent = events.find((entry) => entry.event === 'done');
+      assert.ok(doneEvent);
+      assert.equal(typeof (doneEvent!.payload as { requestId?: unknown }).requestId, 'string');
+      assert.equal((doneEvent!.payload as { answer?: unknown }).answer, 'Respuesta consolidada');
+      assert.deepEqual((doneEvent!.payload as { sources?: unknown }).sources, [
+        { name: 'Manual', content: 'Contenido' },
+      ]);
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
+  await t.test('streams error event on provider failure', async () => {
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('query-stream-error') },
+        error: null,
+      })),
+      mockExecuteRagQuery(async () => {
+        throw new Error('stream exploded');
+      }),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postSse(baseUrl, '/query/stream', { query: 'explode' }, 'query-stream-error-token');
+      const raw = await response.text();
+      const events = parseSsePayload(raw);
+      const errorEvent = events.find((entry) => entry.event === 'error');
+
+      assert.equal(response.status, 200);
+      assert.ok(errorEvent);
+      assert.equal((errorEvent!.payload as { error?: unknown }).error, 'stream exploded');
+      assert.equal((errorEvent!.payload as { status?: unknown }).status, 500);
+      assert.equal(typeof (errorEvent!.payload as { requestId?: unknown }).requestId, 'string');
     } finally {
       restoreAll(restores);
       await stopServer(server);

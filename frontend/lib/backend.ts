@@ -2,6 +2,8 @@ import type {
   AdminDocumentsResponse,
   AdminStats,
   ChatResponse,
+  ChatStreamDoneEvent,
+  ChatStreamTokenEvent,
   DeleteDocumentResponse,
   IngestResponse,
 } from "@/lib/types";
@@ -40,6 +42,13 @@ export class BackendApiError extends Error {
     this.status = status;
     this.requestId = requestId;
     this.metadata = metadata;
+  }
+}
+
+export class SseUnavailableError extends Error {
+  constructor(message = "SSE not available") {
+    super(message);
+    this.name = "SseUnavailableError";
   }
 }
 
@@ -126,6 +135,197 @@ export function sendChatMessage(token: string, query: string) {
     method: "POST",
     body: JSON.stringify({ query }),
   });
+}
+
+type StreamCallbacks = {
+  onToken: (event: ChatStreamTokenEvent) => void;
+  onDone: (event: ChatStreamDoneEvent) => void;
+  onError?: (error: BackendApiError) => void;
+};
+
+function parseTokenEvent(payload: Record<string, unknown>): ChatStreamTokenEvent | null {
+  if (typeof payload.delta !== "string") {
+    return null;
+  }
+
+  return {
+    delta: payload.delta,
+    requestId: typeof payload.requestId === "string" ? payload.requestId : undefined,
+  };
+}
+
+function parseDoneEvent(payload: Record<string, unknown>): ChatStreamDoneEvent | null {
+  if (typeof payload.answer !== "string" || !Array.isArray(payload.sources)) {
+    return null;
+  }
+
+  return {
+    answer: payload.answer,
+    sources: payload.sources as ChatStreamDoneEvent["sources"],
+    requestId: typeof payload.requestId === "string" ? payload.requestId : undefined,
+    code: typeof payload.code === "string" ? payload.code : undefined,
+    degraded: payload.degraded === true,
+    retryable: payload.retryable === true,
+    retryAfterMs: typeof payload.retryAfterMs === "number" ? payload.retryAfterMs : undefined,
+    timings:
+      payload.timings && typeof payload.timings === "object"
+        ? {
+            firstTokenMs:
+              typeof (payload.timings as { firstTokenMs?: unknown }).firstTokenMs === "number"
+                ? (payload.timings as { firstTokenMs: number }).firstTokenMs
+                : null,
+            totalMs:
+              typeof (payload.timings as { totalMs?: unknown }).totalMs === "number"
+                ? (payload.timings as { totalMs: number }).totalMs
+                : undefined,
+          }
+        : undefined,
+  };
+}
+
+function parseSseEvents(chunk: string, carry: string) {
+  const merged = `${carry}${chunk}`;
+  const parts = merged.split("\n\n");
+  const rest = parts.pop() ?? "";
+
+  const events = parts
+    .map((part) => {
+      const lines = part.split("\n");
+      const eventLine = lines.find((line) => line.startsWith("event:"));
+      const dataLine = lines.find((line) => line.startsWith("data:"));
+
+      if (!eventLine || !dataLine) {
+        return null;
+      }
+
+      return {
+        event: eventLine.replace(/^event:\s*/, "").trim(),
+        data: dataLine.replace(/^data:\s*/, "").trim(),
+      };
+    })
+    .filter((value): value is { event: string; data: string } => value !== null);
+
+  return { events, rest };
+}
+
+export async function streamChatMessage(
+  token: string,
+  query: string,
+  callbacks: StreamCallbacks,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${API_URL}/query/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      Accept: "text/event-stream",
+    },
+    body: JSON.stringify({ query }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const raw = await response.text();
+    let payload: ErrorPayload | null = null;
+
+    try {
+      payload = raw ? (JSON.parse(raw) as ErrorPayload) : null;
+    } catch {
+      payload = null;
+    }
+
+    const message =
+      payload && typeof payload.error === "string"
+        ? payload.error
+        : `Request failed with status ${response.status}`;
+
+    throw new BackendApiError(
+      message,
+      response.status,
+      payload && typeof payload.requestId === "string" ? payload.requestId : null,
+      {
+        code: payload && typeof payload.code === "string" ? payload.code : null,
+        degraded: payload?.degraded === true,
+        retryable: payload?.retryable === true,
+        retryAfterMs:
+          payload && typeof payload.retryAfterMs === "number" ? payload.retryAfterMs : null,
+      },
+    );
+  }
+
+  if (!response.body) {
+    throw new SseUnavailableError();
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const { events, rest } = parseSseEvents("", buffer);
+    buffer = rest;
+
+    for (const entry of events) {
+      try {
+        const payload = JSON.parse(entry.data) as Record<string, unknown>;
+
+        if (entry.event === "token") {
+          const tokenEvent = parseTokenEvent(payload);
+
+          if (!tokenEvent) {
+            throw new SseUnavailableError("Malformed token event payload");
+          }
+
+          callbacks.onToken(tokenEvent);
+          continue;
+        }
+
+        if (entry.event === "done") {
+          const doneEvent = parseDoneEvent(payload);
+
+          if (!doneEvent) {
+            throw new SseUnavailableError("Malformed done event payload");
+          }
+
+          callbacks.onDone(doneEvent);
+          return;
+        }
+
+        if (entry.event === "error") {
+          const backendError = new BackendApiError(
+            typeof payload.error === "string" ? payload.error : "Streaming failed",
+            typeof payload.status === "number" ? payload.status : 500,
+            typeof payload.requestId === "string" ? payload.requestId : null,
+            {
+              code: typeof payload.code === "string" ? payload.code : null,
+              degraded: payload.degraded === true,
+              retryable: payload.retryable === true,
+              retryAfterMs: typeof payload.retryAfterMs === "number" ? payload.retryAfterMs : null,
+            },
+          );
+
+          callbacks.onError?.(backendError);
+          throw backendError;
+        }
+      } catch (error) {
+        if (error instanceof BackendApiError) {
+          throw error;
+        }
+
+        throw new SseUnavailableError("Malformed SSE payload");
+      }
+    }
+  }
+
+  throw new SseUnavailableError("Stream closed without done event");
 }
 
 export function ingestDocument(token: string, url: string) {

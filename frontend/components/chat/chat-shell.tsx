@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot, CornerDownLeft, FileText, Sparkles } from "lucide-react";
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -9,7 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { getBackendErrorInfo, sendChatMessage } from "@/lib/backend";
+import {
+  getBackendErrorInfo,
+  sendChatMessage,
+  SseUnavailableError,
+  streamChatMessage,
+} from "@/lib/backend";
 import {
   getChatStorageKey,
   loadPersistedChatStateWithKey,
@@ -36,6 +41,7 @@ export function ChatShell() {
   const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
   const [degradedHint, setDegradedHint] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
   const storageKey = getChatStorageKey(user?.id);
 
   useEffect(() => {
@@ -77,6 +83,12 @@ export function ChatShell() {
   const activeSources =
     messages.find((message) => message.id === activeMessageId)?.sources || [];
 
+  useEffect(() => {
+    return () => {
+      activeAbortControllerRef.current?.abort();
+    };
+  }, []);
+
   async function submitPrompt(nextPrompt?: string) {
     const prompt = (nextPrompt || input).trim();
 
@@ -97,6 +109,8 @@ export function ChatShell() {
     setDegradedHint(null);
     setPending(true);
 
+    let assistantMessageId: string | null = null;
+
     try {
       const token = await getAccessToken();
 
@@ -104,16 +118,102 @@ export function ChatShell() {
         throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
       }
 
-      const response = await sendChatMessage(token, prompt);
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
+      assistantMessageId = crypto.randomUUID();
+      const baseAssistantMessage: ChatMessage = {
+        id: assistantMessageId,
         role: "assistant",
-        content: response.answer,
-        sources: response.sources,
+        content: "",
+        sources: [],
       };
 
-      setMessages((current) => [...current, assistantMessage]);
-      setActiveMessageId(assistantMessage.id);
+      setMessages((current) => [...current, baseAssistantMessage]);
+      setActiveMessageId(assistantMessageId);
+
+      const abortController = new AbortController();
+      activeAbortControllerRef.current = abortController;
+      let streamCompleted = false;
+
+      try {
+        await streamChatMessage(
+          token,
+          prompt,
+          {
+            onToken: (event) => {
+              setMessages((current) =>
+                current.map((message) =>
+                  message.id === assistantMessageId
+                    ? { ...message, content: `${message.content}${event.delta}` }
+                    : message,
+                ),
+              );
+            },
+            onDone: (event) => {
+              streamCompleted = true;
+              setMessages((current) =>
+                current.map((message) =>
+                  message.id === assistantMessageId
+                    ? {
+                        ...message,
+                        content: event.answer,
+                        sources: event.sources,
+                      }
+                    : message,
+                ),
+              );
+            },
+          },
+          abortController.signal,
+        );
+      } catch (streamError) {
+        const aborted =
+          (streamError instanceof DOMException && streamError.name === "AbortError")
+          || abortController.signal.aborted;
+
+        if (aborted) {
+          if (assistantMessageId) {
+            const assistantId = assistantMessageId;
+            setMessages((current) => removeMessageById(current, assistantId));
+          }
+          setMessages((current) => removeMessageById(current, userMessage.id));
+          setInput(prompt);
+          return;
+        }
+
+        const canFallbackToJson =
+          streamError instanceof SseUnavailableError
+          || (streamError instanceof Error
+            && "status" in streamError
+            && typeof (streamError as { status?: unknown }).status === "number"
+            && ((streamError as { status: number }).status === 404
+              || (streamError as { status: number }).status === 405
+              || (streamError as { status: number }).status === 501));
+
+        if (canFallbackToJson) {
+          const response = await sendChatMessage(token, prompt);
+
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantMessageId
+                ? {
+                    ...message,
+                    content: response.answer,
+                    sources: response.sources,
+                  }
+                : message,
+            ),
+          );
+
+          streamCompleted = true;
+        } else {
+          throw streamError;
+        }
+      } finally {
+        activeAbortControllerRef.current = null;
+      }
+
+      if (!streamCompleted) {
+        throw new Error("No se pudo completar la respuesta en stream.");
+      }
     } catch (submitError) {
       const { message, requestId, metadata } = getBackendErrorInfo(
         submitError,
@@ -125,7 +225,12 @@ export function ChatShell() {
           ? `Modo degradado activo${metadata.retryAfterMs ? `, reintentá en ${metadata.retryAfterMs}ms.` : "."}`
           : null;
 
-      setMessages((current) => removeMessageById(current, userMessage.id));
+      setMessages((current) => {
+        const withoutUser = removeMessageById(current, userMessage.id);
+        return assistantMessageId
+          ? removeMessageById(withoutUser, assistantMessageId)
+          : withoutUser;
+      });
       setInput(prompt);
       setError(message);
       setErrorRequestId(requestId);
@@ -143,8 +248,17 @@ export function ChatShell() {
         });
       }
     } finally {
+      activeAbortControllerRef.current = null;
       setPending(false);
     }
+  }
+
+  function cancelStreaming() {
+    if (!pending) {
+      return;
+    }
+
+    activeAbortControllerRef.current?.abort();
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -322,9 +436,16 @@ export function ChatShell() {
                 <CornerDownLeft className="h-3.5 w-3.5" />
                 Usa Enter para enviar y Shift + Enter para una nueva línea.
               </p>
-              <Button disabled={pending || !input.trim()} type="submit">
-                {pending ? "Consultando..." : "Enviar pregunta"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {pending ? (
+                  <Button onClick={cancelStreaming} type="button" variant="secondary">
+                    Cancelar
+                  </Button>
+                ) : null}
+                <Button disabled={pending || !input.trim()} type="submit">
+                  {pending ? "Consultando..." : "Enviar pregunta"}
+                </Button>
+              </div>
             </div>
           </form>
 
