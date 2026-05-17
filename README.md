@@ -63,8 +63,10 @@
   - `Frontend Build`
   - `Frontend E2E Smoke`
 - These checks prevent merges with type errors, broken builds, or regressions in key user flows.
-- Branch protection currently uses non-strict status checks (head branch does not need to be forcibly up to date before merge).
+- Branch protection uses strict status checks (head branch must be up to date with `main` before merge).
 - CI governance runbook: [`docs/ci-governance.md`](docs/ci-governance.md)
+- Secrets rotation runbook: [`docs/security-secrets-rotation.md`](docs/security-secrets-rotation.md)
+- Phase 0 baseline evidence: [`docs/phase0-baseline.md`](docs/phase0-baseline.md)
 
 ### RAG Evaluation (Metrics-Based)
 
@@ -135,7 +137,7 @@ npm run rag:eval -- --dataset=eval/fixtures/rag-eval.sample.json
 - `server.ts` validates environment variables on startup and exposes a healthcheck with dependency verification.
 - The backend uses structured logging with Winston and currently adds request IDs in the `ingest` and `query` API handlers.
 - The scraper has timeout, redirect limits, and payload size limits to prevent trivial DoS cases.
-- The frontend chat persists transcript and active selection per user in `localStorage`.
+- The frontend chat persists transcript and active selection per user in `sessionStorage`.
 - Frontend authentication refreshes the session when the token is close to expiration.
 
 ## Installation
