@@ -14,7 +14,7 @@ npm run test:e2e
 ## Estado funcional
 
 - La sesion de Supabase se refresca cuando el token esta por expirar.
-- El chat persiste transcript y seleccion activa por usuario en `sessionStorage`.
+- El chat persiste transcript y selección activa por usuario en `sessionStorage`.
 - Los helpers de frontend tienen tests con `node:test`.
 - Hay smoke E2E con Playwright para auth keyboard focus y redirects de guards.
 
