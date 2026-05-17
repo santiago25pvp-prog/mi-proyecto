@@ -97,7 +97,9 @@ For every rotation, capture and store:
 - Command outputs for validation checks (or CI run links).
 - Incident reference if emergency rotation.
 
-Store evidence in `docs/` or the operational tracker linked from the ticket.
+Store only non-sensitive evidence in `docs/`, such as masked key prefixes, validation check outputs, CI run links, timestamps, environment lists, and ticket/approval references.
+Do not include secret values, full tokens/keys, secret-manager exports, or screenshots that reveal secret material in repository-tracked evidence.
+Any sensitive evidence must live only in the external operational tracker linked from the ticket.
 
 ## Fallback / Rollback
 
