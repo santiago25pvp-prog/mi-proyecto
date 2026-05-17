@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.19.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.18.0...v1.19.0) (2026-05-17)
+
+
+### Features
+
+* add async ingestion jobs ([717893f](https://github.com/santiago25pvp-prog/mi-proyecto/commit/717893fbafcb403eded7144840202589ddfc6887))
+* add async ingestion jobs ([401eb85](https://github.com/santiago25pvp-prog/mi-proyecto/commit/401eb85c755cf46cdca4f4d20f1ce431bb820f1d))
+* fase 3 rerank post-retrieval ([3726fc2](https://github.com/santiago25pvp-prog/mi-proyecto/commit/3726fc208e1a7fafe921f1706cc2094f417b6d8f))
+
 ## [1.18.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.17.0...v1.18.0) (2026-05-17)
 
 
