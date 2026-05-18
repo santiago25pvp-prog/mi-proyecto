@@ -1,9 +1,12 @@
 import type {
   AdminDocumentsResponse,
   AdminStats,
+  ChatSessionMessagesResponse,
+  ChatSessionsResponse,
   ChatResponse,
   ChatStreamDoneEvent,
   ChatStreamTokenEvent,
+  CreateChatSessionResponse,
   DeleteDocumentResponse,
   IngestJobStatusResponse,
   IngestResponse,
@@ -12,6 +15,7 @@ import type { BackendErrorMetadata } from "@/lib/types";
 import { readFrontendPublicEnv, resolveApiUrl } from "./env";
 
 const API_URL = resolveApiUrl(readFrontendPublicEnv());
+const DEFAULT_ACCEPT_LANGUAGE = "es-CO";
 
 type ErrorPayload = {
   error?: unknown;
@@ -88,6 +92,7 @@ async function request<T>(
     ...init,
     headers: {
       "Content-Type": "application/json",
+      "Accept-Language": DEFAULT_ACCEPT_LANGUAGE,
       Authorization: `Bearer ${token}`,
       ...(init.headers || {}),
     },
@@ -131,10 +136,20 @@ async function request<T>(
   return payload as T;
 }
 
-export function sendChatMessage(token: string, query: string) {
+type ChatRequestOptions = {
+  sessionId?: string | null;
+};
+
+function buildChatRequestBody(query: string, options: ChatRequestOptions = {}) {
+  return options.sessionId
+    ? { query, sessionId: options.sessionId }
+    : { query };
+}
+
+export function sendChatMessage(token: string, query: string, options: ChatRequestOptions = {}) {
   return request<ChatResponse>("/query", token, {
     method: "POST",
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(buildChatRequestBody(query, options)),
   });
 }
 
@@ -214,15 +229,17 @@ export async function streamChatMessage(
   query: string,
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
+  options: ChatRequestOptions = {},
 ): Promise<void> {
   const response = await fetch(`${API_URL}/query/stream`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Accept-Language": DEFAULT_ACCEPT_LANGUAGE,
       Authorization: `Bearer ${token}`,
       Accept: "text/event-stream",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(buildChatRequestBody(query, options)),
     signal,
   });
 
@@ -338,6 +355,30 @@ export function ingestDocument(token: string, url: string) {
 
 export function fetchIngestJobStatus(token: string, jobId: string) {
   return request<IngestJobStatusResponse>(`/ingest/${encodeURIComponent(jobId)}`, token);
+}
+
+export function fetchChatSessions(token: string) {
+  return request<ChatSessionsResponse>("/chat/sessions", token);
+}
+
+export function createChatSession(token: string, title?: string) {
+  return request<CreateChatSessionResponse>("/chat/sessions", token, {
+    method: "POST",
+    body: JSON.stringify(title ? { title } : {}),
+  });
+}
+
+export function fetchChatSessionMessages(token: string, sessionId: string) {
+  return request<ChatSessionMessagesResponse>(
+    `/chat/sessions/${encodeURIComponent(sessionId)}/messages`,
+    token,
+  );
+}
+
+export function deleteChatSession(token: string, sessionId: string) {
+  return request<void>(`/chat/sessions/${encodeURIComponent(sessionId)}`, token, {
+    method: "DELETE",
+  });
 }
 
 export function fetchAdminStats(token: string) {

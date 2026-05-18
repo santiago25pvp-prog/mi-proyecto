@@ -19,6 +19,9 @@
 
 - `POST /query` receives `query` and returns JSON in this format: `{ "requestId": string, "answer": string, "sources": [] }`.
 - `POST /query/stream` returns Server-Sent Events (`text/event-stream`) with incremental `token` chunks, final `done`, and structured `error` events.
+- `POST /query` and `POST /query/stream` accept optional `sessionId` to persist the user/assistant exchange in server-side chat history.
+- `/chat/sessions` exposes authenticated conversation list, create, message history, and delete routes.
+- Public backend errors can be localized with `Accept-Language: es` or `Accept-Language: en`; requests without a supported language keep legacy messages.
 - During transient provider exhaustion, `POST /query` returns `503` with additive compatibility fields: `code`, `degraded`, `retryable`, `retryAfterMs`, while preserving `error` and `requestId`.
 - `POST /ingest` queues document ingestion and `GET /ingest/:jobId` exposes job status.
 - Administrative endpoints allow listing documents, deleting documents, and checking stats.
@@ -350,11 +353,12 @@ Default ports:
 - JSON body:
 
 ```json
-{ "query": "consulta" }
+{ "query": "consulta", "sessionId": "uuid-opcional" }
 ```
 
 - Parameters:
   - `query` (string, required): query that will be answered with RAG.
+  - `sessionId` (string, optional): existing chat session owned by the authenticated user. When present, the backend persists the user prompt and assistant answer after a successful response.
 - `200 OK` response:
 
 ```json
@@ -389,7 +393,7 @@ Default ports:
 - JSON body:
 
 ```json
-{ "query": "consulta" }
+{ "query": "consulta", "sessionId": "uuid-opcional" }
 ```
 
 - SSE event contract:
@@ -402,6 +406,16 @@ Default ports:
   - frontend first attempts `/query/stream` and automatically falls back to `POST /query` JSON when SSE is unavailable, unsupported, or returns `404/405/501`.
 - Current limitation:
   - provider output is currently streamed through safe incremental chunking of the final generated answer. The contract is forward-compatible with true token streaming from the model provider.
+
+### Chat Sessions
+
+- Base path: `/chat/sessions`
+- Auth: required
+- `GET /chat/sessions`: returns `{ "sessions": [], "requestId": string }` ordered by most recently updated.
+- `POST /chat/sessions`: accepts optional `{ "title": string }` and returns `{ "session": {}, "requestId": string }`.
+- `GET /chat/sessions/:sessionId/messages`: returns `{ "messages": [], "requestId": string }`.
+- `DELETE /chat/sessions/:sessionId`: deletes a user-owned conversation and returns `204 No Content`.
+- Access control: the backend filters every operation by authenticated `user_id`, and the Supabase migration enables RLS policies scoped to `auth.uid()`.
 
 ### POST /ingest
 

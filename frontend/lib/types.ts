@@ -41,6 +41,30 @@ export interface ChatMessage {
   sources?: ChatSource[];
 }
 
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatSessionMessage extends ChatMessage {
+  sequence: number;
+  createdAt: string;
+}
+
+export interface ChatSessionsResponse extends ApiResponseMeta {
+  sessions: ChatSession[];
+}
+
+export interface CreateChatSessionResponse extends ApiResponseMeta {
+  session: ChatSession;
+}
+
+export interface ChatSessionMessagesResponse extends ApiResponseMeta {
+  messages: ChatSessionMessage[];
+}
+
 export interface AdminDocument {
   id: number;
   name: string;

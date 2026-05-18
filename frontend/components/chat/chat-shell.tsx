@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, CornerDownLeft, FileText, Sparkles } from "lucide-react";
+import { Bot, CornerDownLeft, FileText, MessageSquare, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -10,6 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  createChatSession,
+  deleteChatSession as deleteServerChatSession,
+  fetchChatSessionMessages,
+  fetchChatSessions,
   getBackendErrorInfo,
   sendChatMessage,
   SseUnavailableError,
@@ -22,7 +26,7 @@ import {
 } from "@/lib/chat-storage";
 import { removeMessageById } from "@/lib/chat-messages";
 import { emitDegradedTelemetry } from "@/lib/reliability-telemetry";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, ChatSession, ChatSessionMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const starterPrompts = [
@@ -30,6 +34,24 @@ const starterPrompts = [
   "Encuentra la información más relevante para explicar este tema a un cliente.",
   "Extrae los puntos clave y cita las fuentes disponibles.",
 ];
+
+function toClientMessages(messages: ChatSessionMessage[]): ChatMessage[] {
+  return messages.map((message) => ({
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    ...(message.sources ? { sources: message.sources } : {}),
+  }));
+}
+
+function getFallbackActiveMessageId(messages: ChatMessage[]) {
+  return messages.filter((message) => message.role === "assistant").at(-1)?.id ?? null;
+}
+
+function buildSessionTitle(prompt: string) {
+  const title = prompt.replace(/\s+/g, " ").trim();
+  return title.length > 64 ? `${title.slice(0, 61).trim()}...` : title;
+}
 
 export function ChatShell() {
   const { getAccessToken, user } = useAuth();
@@ -41,6 +63,10 @@ export function ChatShell() {
   const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
   const [degradedHint, setDegradedHint] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [sessionSyncError, setSessionSyncError] = useState<string | null>(null);
   const activeAbortControllerRef = useRef<AbortController | null>(null);
   const storageKey = getChatStorageKey(user?.id);
 
@@ -71,12 +97,10 @@ export function ChatShell() {
       return;
     }
 
-    const lastAssistantMessage = [...messages]
-      .reverse()
-      .find((message) => message.role === "assistant");
+    const lastAssistantMessageId = getFallbackActiveMessageId(messages);
 
-    if (lastAssistantMessage) {
-      setActiveMessageId(lastAssistantMessage.id);
+    if (lastAssistantMessageId) {
+      setActiveMessageId(lastAssistantMessageId);
     }
   }, [activeMessageId, messages]);
 
@@ -88,6 +112,168 @@ export function ChatShell() {
       activeAbortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!hydrated || !user?.id) {
+      return;
+    }
+
+    let ignore = false;
+
+    async function loadServerSessions() {
+      setLoadingSessions(true);
+
+      try {
+        const token = await getAccessToken();
+
+        if (!token) {
+          return;
+        }
+
+        const sessionResponse = await fetchChatSessions(token);
+
+        if (ignore) {
+          return;
+        }
+
+        setSessions(sessionResponse.sessions);
+        setSessionSyncError(null);
+
+        const firstSession = sessionResponse.sessions[0];
+
+        if (!firstSession) {
+          setActiveSessionId(null);
+          return;
+        }
+
+        setActiveSessionId(firstSession.id);
+        const messagesResponse = await fetchChatSessionMessages(token, firstSession.id);
+
+        if (ignore) {
+          return;
+        }
+
+        const nextMessages = toClientMessages(messagesResponse.messages);
+        setMessages(nextMessages);
+        setActiveMessageId(getFallbackActiveMessageId(nextMessages));
+      } catch (loadError) {
+        if (ignore) {
+          return;
+        }
+
+        const { message } = getBackendErrorInfo(
+          loadError,
+          "No se pudieron sincronizar las conversaciones.",
+        );
+        setSessionSyncError(message);
+      } finally {
+        if (!ignore) {
+          setLoadingSessions(false);
+        }
+      }
+    }
+
+    void loadServerSessions();
+
+    return () => {
+      ignore = true;
+    };
+  }, [getAccessToken, hydrated, user?.id]);
+
+  async function selectSession(sessionId: string) {
+    if (pending || sessionId === activeSessionId) {
+      return;
+    }
+
+    setLoadingSessions(true);
+    setError(null);
+    setErrorRequestId(null);
+    setDegradedHint(null);
+
+    try {
+      const token = await getAccessToken();
+
+      if (!token) {
+        throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      }
+
+      const messagesResponse = await fetchChatSessionMessages(token, sessionId);
+      const nextMessages = toClientMessages(messagesResponse.messages);
+
+      setActiveSessionId(sessionId);
+      setMessages(nextMessages);
+      setActiveMessageId(getFallbackActiveMessageId(nextMessages));
+      setSessionSyncError(null);
+    } catch (sessionError) {
+      const { message } = getBackendErrorInfo(
+        sessionError,
+        "No se pudo cargar la conversación.",
+      );
+      setSessionSyncError(message);
+      toast.error(message);
+    } finally {
+      setLoadingSessions(false);
+    }
+  }
+
+  function startNewSession() {
+    if (pending) {
+      return;
+    }
+
+    setActiveSessionId(null);
+    setMessages([]);
+    setActiveMessageId(null);
+    setInput("");
+    setError(null);
+    setErrorRequestId(null);
+    setDegradedHint(null);
+  }
+
+  async function deleteActiveSession() {
+    if (pending || !activeSessionId) {
+      return;
+    }
+
+    const sessionIdToDelete = activeSessionId;
+    setLoadingSessions(true);
+
+    try {
+      const token = await getAccessToken();
+
+      if (!token) {
+        throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      }
+
+      await deleteServerChatSession(token, sessionIdToDelete);
+
+      const remainingSessions = sessions.filter((session) => session.id !== sessionIdToDelete);
+      setSessions(remainingSessions);
+
+      const nextSession = remainingSessions[0];
+
+      if (nextSession) {
+        const messagesResponse = await fetchChatSessionMessages(token, nextSession.id);
+        const nextMessages = toClientMessages(messagesResponse.messages);
+        setActiveSessionId(nextSession.id);
+        setMessages(nextMessages);
+        setActiveMessageId(getFallbackActiveMessageId(nextMessages));
+      } else {
+        startNewSession();
+      }
+
+      setSessionSyncError(null);
+    } catch (deleteError) {
+      const { message } = getBackendErrorInfo(
+        deleteError,
+        "No se pudo eliminar la conversación.",
+      );
+      setSessionSyncError(message);
+      toast.error(message);
+    } finally {
+      setLoadingSessions(false);
+    }
+  }
 
   async function submitPrompt(nextPrompt?: string) {
     const prompt = (nextPrompt || input).trim();
@@ -110,12 +296,20 @@ export function ChatShell() {
     setPending(true);
 
     let assistantMessageId: string | null = null;
+    let sessionIdForRequest = activeSessionId;
 
     try {
       const token = await getAccessToken();
 
       if (!token) {
         throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      }
+
+      if (!sessionIdForRequest) {
+        const created = await createChatSession(token, buildSessionTitle(prompt));
+        sessionIdForRequest = created.session.id;
+        setActiveSessionId(created.session.id);
+        setSessions((current) => [created.session, ...current]);
       }
 
       assistantMessageId = crypto.randomUUID();
@@ -163,6 +357,7 @@ export function ChatShell() {
             },
           },
           abortController.signal,
+          { sessionId: sessionIdForRequest },
         );
       } catch (streamError) {
         const aborted =
@@ -189,7 +384,9 @@ export function ChatShell() {
               || (streamError as { status: number }).status === 501));
 
         if (canFallbackToJson) {
-          const response = await sendChatMessage(token, prompt);
+          const response = await sendChatMessage(token, prompt, {
+            sessionId: sessionIdForRequest,
+          });
 
           setMessages((current) =>
             current.map((message) =>
@@ -213,6 +410,19 @@ export function ChatShell() {
 
       if (!streamCompleted) {
         throw new Error("No se pudo completar la respuesta en stream.");
+      }
+
+      if (sessionIdForRequest) {
+        const now = new Date().toISOString();
+        setSessions((current) =>
+          current
+            .map((session) =>
+              session.id === sessionIdForRequest
+                ? { ...session, updatedAt: now }
+                : session,
+            )
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+        );
       }
     } catch (submitError) {
       const { message, requestId, metadata } = getBackendErrorInfo(
@@ -316,9 +526,14 @@ export function ChatShell() {
                 Selecciona una respuesta para inspeccionar sus fuentes.
               </p>
             </div>
-            <Badge variant="default">
-              {messages.length} mensaje{messages.length === 1 ? "" : "s"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {activeSessionId ? (
+                <Badge variant="default">Servidor</Badge>
+              ) : null}
+              <Badge variant="default">
+                {messages.length} mensaje{messages.length === 1 ? "" : "s"}
+              </Badge>
+            </div>
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto px-2 pb-4">
@@ -482,6 +697,84 @@ export function ChatShell() {
       </section>
 
       <aside className="surface-panel rounded-[2rem] p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="section-kicker eyebrow-dot">Sesiones</p>
+            <h3 className="mt-4 text-2xl font-semibold">Conversaciones</h3>
+          </div>
+          <Button
+            aria-label="Nueva conversación"
+            disabled={pending}
+            onClick={startNewSession}
+            size="icon"
+            type="button"
+            variant="secondary"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          {loadingSessions ? (
+            <p className="text-muted text-sm" role="status">
+              Sincronizando conversaciones...
+            </p>
+          ) : null}
+
+          {sessionSyncError ? (
+            <p className="text-sm text-[var(--danger)]" role="alert">
+              {sessionSyncError}
+            </p>
+          ) : null}
+
+          {sessions.length === 0 ? (
+            <div className="surface-soft rounded-[1.75rem] px-4 py-5">
+              <p className="text-sm text-white/75">
+                No hay conversaciones guardadas todavía.
+              </p>
+            </div>
+          ) : (
+            sessions.map((session) => (
+              <button
+                key={session.id}
+                aria-pressed={session.id === activeSessionId}
+                className={cn(
+                  "surface-soft flex w-full items-start gap-3 rounded-[1.25rem] px-4 py-3 text-left transition-colors hover:border-[var(--accent)]",
+                  session.id === activeSessionId ? "border-[var(--accent)] bg-white/[0.05]" : "",
+                )}
+                disabled={pending || loadingSessions}
+                onClick={() => void selectSession(session.id)}
+                type="button"
+              >
+                <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-white">
+                    {session.title}
+                  </span>
+                  <span className="text-muted mt-1 block text-xs">
+                    {new Date(session.updatedAt).toLocaleDateString("es-CO")}
+                  </span>
+                </span>
+              </button>
+            ))
+          )}
+
+          {activeSessionId ? (
+            <Button
+              className="w-full"
+              disabled={pending || loadingSessions}
+              onClick={() => void deleteActiveSession()}
+              type="button"
+              variant="secondary"
+            >
+              <Trash2 className="h-4 w-4" />
+              Eliminar conversación
+            </Button>
+          ) : null}
+        </div>
+
+        <Separator className="my-6" />
+
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="section-kicker eyebrow-dot">Inspector</p>

@@ -5,6 +5,7 @@ import { authMiddleware } from './middleware/authMiddleware';
 import { publicLimiter, authLimiter } from './middleware/rateLimiter';
 import { ingestHandler, ingestStatusHandler, queryHandler, queryStreamHandler } from './controllers/api';
 import adminRoutes from './routes/admin';
+import chatSessionRoutes from './routes/chat-sessions';
 import { validateRequest } from './middleware/requestValidation';
 import { checkDependencies } from './services/health';
 import { errorMiddleware, notFoundHandler } from './middleware/errorMiddleware';
@@ -57,7 +58,7 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', allowedOrigin);
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept-Language');
 
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
@@ -101,6 +102,7 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
     authLimiter,
     validateRequest([
       { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
+      { source: 'body', field: 'sessionId', type: 'string', trim: true, minLength: 1 },
     ]),
     queryHandler,
   );
@@ -111,10 +113,12 @@ export function createApp(env: NodeJS.ProcessEnv = process.env) {
     authLimiter,
     validateRequest([
       { source: 'body', field: 'query', type: 'string', required: true, requiredMessage: 'Query is required', trim: true, minLength: 1 },
+      { source: 'body', field: 'sessionId', type: 'string', trim: true, minLength: 1 },
     ]),
     queryStreamHandler,
   );
 
+  app.use('/chat/sessions', authMiddleware, authLimiter, chatSessionRoutes);
   app.use('/admin', adminRoutes);
 
   app.use(notFoundHandler);
