@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.19.0...v1.20.0) (2026-05-18)
+
+
+### Features
+
+* add server chat sessions ([0912a3e](https://github.com/santiago25pvp-prog/mi-proyecto/commit/0912a3e6f14f1cb5cf599130e073cce88871ee9f))
+* add server chat sessions ([f9d9cab](https://github.com/santiago25pvp-prog/mi-proyecto/commit/f9d9cab3c55194c1bb411fee25ea9980fa9864f7))
+
 ## [1.19.0](https://github.com/santiago25pvp-prog/mi-proyecto/compare/v1.18.0...v1.19.0) (2026-05-17)
 
 
