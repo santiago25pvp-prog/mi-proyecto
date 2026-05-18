@@ -14,7 +14,8 @@ npm run test:e2e
 ## Estado funcional
 
 - La sesion de Supabase se refresca cuando el token esta por expirar.
-- El chat persiste transcript y selección activa por usuario en `sessionStorage`.
+- El chat carga conversaciones persistidas desde `/chat/sessions` y usa `sessionStorage` como fallback local.
+- Las consultas envian `Accept-Language: es-CO` y `sessionId` cuando hay una conversacion activa.
 - Los helpers de frontend tienen tests con `node:test`.
 - Hay smoke E2E con Playwright para auth keyboard focus y redirects de guards.
 

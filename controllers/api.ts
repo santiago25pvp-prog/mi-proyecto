@@ -9,6 +9,9 @@ import { getValidatedRequest } from '../middleware/requestValidation';
 import { HttpError } from '../middleware/httpError';
 import { getRequestId } from '../middleware/requestId';
 import { DEGRADED_CODE, isRagReliabilityError } from '../services/rag-reliability';
+import { ChatSessionNotFoundError } from '../services/chat-sessions';
+import * as chatSessions from '../services/chat-sessions';
+import { translate } from '../services/i18n';
 
 const vectorStore = new SupabaseVectorAdapter();
 const STREAM_HEARTBEAT_MS = 15000;
@@ -49,6 +52,53 @@ function serializeIngestJob(job: IngestJob) {
     ...(job.result ? { result: job.result } : {}),
     ...(job.error ? { error: job.error } : {}),
   };
+}
+
+function getUserId(req: Request): string | null {
+  const userId = (req as any).user?.id;
+  return typeof userId === 'string' && userId.length > 0 ? userId : null;
+}
+
+function getSessionId(body: Record<string, unknown>): string | null {
+  return typeof body.sessionId === 'string' && body.sessionId.length > 0
+    ? body.sessionId
+    : null;
+}
+
+async function ensureOptionalChatSession(userId: string | null, sessionId: string | null): Promise<void> {
+  if (!userId || !sessionId) {
+    return;
+  }
+
+  try {
+    await chatSessions.ensureChatSessionForUser(userId, sessionId);
+  } catch (error) {
+    if (error instanceof ChatSessionNotFoundError) {
+      throw new HttpError('Chat session not found', 404, undefined, 'chat.session_not_found');
+    }
+
+    throw error;
+  }
+}
+
+async function persistOptionalExchange(input: {
+  userId: string | null;
+  sessionId: string | null;
+  query: string;
+  answer: string;
+  sources: Awaited<ReturnType<typeof executeRagQuery>>['sources'];
+}): Promise<void> {
+  if (!input.userId || !input.sessionId) {
+    return;
+  }
+
+  await chatSessions.appendChatExchange({
+    userId: input.userId,
+    sessionId: input.sessionId,
+    userMessage: input.query,
+    assistantMessage: input.answer,
+    sources: input.sources,
+  });
 }
 
 export const ingestHandler = async (req: Request, res: Response) => {
@@ -92,8 +142,12 @@ export const queryHandler = async (req: Request, res: Response) => {
   const requestId = getRequestId(res);
   const { body } = getValidatedRequest(res);
   const query = body.query as string;
+  const userId = getUserId(req);
+  const sessionId = getSessionId(body);
   const flags = getReliabilityFlags();
   const startedAt = Date.now();
+
+  await ensureOptionalChatSession(userId, sessionId);
 
   logReliabilityEvent({
     eventName: 'query_request_started',
@@ -107,6 +161,14 @@ export const queryHandler = async (req: Request, res: Response) => {
 
   const result = await executeRagQuery(vectorStore, query, { requestId });
   const latencyMs = Date.now() - startedAt;
+
+  await persistOptionalExchange({
+    userId,
+    sessionId,
+    query,
+    answer: result.answer,
+    sources: result.sources,
+  });
 
   if (result.reliability?.degraded && flags.degradedContractEnabled) {
     logReliabilityEvent({
@@ -133,7 +195,7 @@ export const queryHandler = async (req: Request, res: Response) => {
       degraded: true,
       retryable: true,
       retryAfterMs: result.reliability.retryAfterMs,
-      error: 'Provider temporarily unavailable',
+      error: translate(req, 'provider.temporary', 'Provider temporarily unavailable'),
     });
     return;
   }
@@ -155,9 +217,13 @@ export const queryStreamHandler = async (req: Request, res: Response) => {
   const requestId = getRequestId(res);
   const { body } = getValidatedRequest(res);
   const query = body.query as string;
+  const userId = getUserId(req);
+  const sessionId = getSessionId(body);
   const startedAt = Date.now();
   let firstTokenAt: number | null = null;
   let streamClosed = false;
+
+  await ensureOptionalChatSession(userId, sessionId);
 
   res.status(200);
   res.set({
@@ -256,6 +322,14 @@ export const queryStreamHandler = async (req: Request, res: Response) => {
         });
       }
     }
+
+    await persistOptionalExchange({
+      userId,
+      sessionId,
+      query,
+      answer: accumulated,
+      sources: result.sources,
+    });
 
     writeSseEvent(res, 'done', {
       requestId,

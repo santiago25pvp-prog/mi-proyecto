@@ -145,7 +145,7 @@ export function validateRequest(rules: Rule[]): RequestHandler {
     }
 
     if (errors.length > 0) {
-      return next(new HttpError('Invalid request', 400, errors));
+      return next(new HttpError('Invalid request', 400, errors, 'validation.invalid'));
     }
 
     res.locals.validated = validated;

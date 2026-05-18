@@ -2,12 +2,13 @@ import { NextFunction, Request, Response } from 'express';
 import { getReliabilityFlags } from '../services/ai';
 import logger, { logReliabilityEvent } from '../services/logger';
 import { DEGRADED_CODE, isRagReliabilityError } from '../services/rag-reliability';
+import { translate, TranslationKey } from '../services/i18n';
 import { isHttpError } from './httpError';
 import { getRequestId } from './requestId';
 
 export function notFoundHandler(req: Request, res: Response) {
   const requestId = getRequestId(res);
-  res.status(404).json({ error: 'Not Found', requestId });
+  res.status(404).json({ error: translate(req, 'not_found', 'Not Found'), requestId });
 }
 
 export function errorMiddleware(error: unknown, req: Request, res: Response, next: NextFunction) {
@@ -20,7 +21,7 @@ export function errorMiddleware(error: unknown, req: Request, res: Response, nex
 
   if (isHttpError(error)) {
     return res.status(error.statusCode).json({
-      error: error.message,
+      error: translate(req, error.translationKey as TranslationKey | undefined, error.message),
       requestId,
       ...(error.details ? { details: error.details } : {}),
     });
@@ -29,7 +30,7 @@ export function errorMiddleware(error: unknown, req: Request, res: Response, nex
   if (isRagReliabilityError(error)) {
     if (error.errorClass === 'TRANSIENT_EXHAUSTED') {
       if (!flags.degradedContractEnabled) {
-        return res.status(500).json({ error: 'Internal Server Error', requestId });
+        return res.status(500).json({ error: translate(req, 'internal', 'Internal Server Error'), requestId });
       }
 
       logger.warn('rag_query_degraded_response', {
@@ -56,7 +57,7 @@ export function errorMiddleware(error: unknown, req: Request, res: Response, nex
       });
 
       return res.status(503).json({
-        error: error.message,
+        error: translate(req, 'provider.temporary', error.message),
         requestId,
         code: DEGRADED_CODE,
         degraded: true,
@@ -108,5 +109,5 @@ export function errorMiddleware(error: unknown, req: Request, res: Response, nex
     },
   });
 
-  return res.status(500).json({ error: 'Internal Server Error', requestId });
+  return res.status(500).json({ error: translate(req, 'internal', 'Internal Server Error'), requestId });
 }

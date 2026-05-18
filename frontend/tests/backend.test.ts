@@ -3,6 +3,10 @@ const { mock, test } = require("node:test");
 
 import {
   BackendApiError,
+  createChatSession,
+  deleteChatSession,
+  fetchChatSessionMessages,
+  fetchChatSessions,
   fetchIngestJobStatus,
   getBackendErrorInfo,
   ingestDocument,
@@ -84,6 +88,89 @@ test("sendChatMessage preserves additive degraded metadata for compatibility", a
         return true;
       },
     );
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("sendChatMessage includes sessionId and Accept-Language", async () => {
+  const fetchMock = mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    status: 200,
+    text: async () =>
+      JSON.stringify({
+        answer: "Respuesta",
+        sources: [],
+        requestId: "req-query",
+      }),
+  } as Response));
+
+  try {
+    await sendChatMessage("token", "hola", { sessionId: "session-1" });
+    const [, init] = fetchMock.mock.calls[0].arguments;
+
+    assert.equal((init?.headers as Record<string, string>)["Accept-Language"], "es-CO");
+    assert.equal(init?.body, JSON.stringify({ query: "hola", sessionId: "session-1" }));
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("chat session helpers call server session endpoints", async () => {
+  const responses = [
+    {
+      sessions: [
+        {
+          id: "session-1",
+          title: "Tema",
+          createdAt: "2026-05-17T00:00:00.000Z",
+          updatedAt: "2026-05-17T00:00:00.000Z",
+        },
+      ],
+      requestId: "req-list",
+    },
+    {
+      session: {
+        id: "session-2",
+        title: "Nuevo",
+        createdAt: "2026-05-17T00:00:00.000Z",
+        updatedAt: "2026-05-17T00:00:00.000Z",
+      },
+      requestId: "req-create",
+    },
+    {
+      messages: [
+        {
+          id: "message-1",
+          role: "user",
+          content: "Pregunta",
+          sequence: 1,
+          createdAt: "2026-05-17T00:00:00.000Z",
+        },
+      ],
+      requestId: "req-messages",
+    },
+    {},
+  ];
+  const fetchMock = mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify(responses.shift()),
+  } as Response));
+
+  try {
+    const sessions = await fetchChatSessions("token");
+    const created = await createChatSession("token", "Nuevo");
+    const messages = await fetchChatSessionMessages("token", "session-1");
+    await deleteChatSession("token", "session-1");
+
+    assert.equal(sessions.sessions[0].id, "session-1");
+    assert.equal(created.session.id, "session-2");
+    assert.equal(messages.messages[0].content, "Pregunta");
+    assert.equal(fetchMock.mock.calls[0].arguments[0].toString().endsWith("/chat/sessions"), true);
+    assert.equal(fetchMock.mock.calls[1].arguments[1]?.method, "POST");
+    assert.equal(fetchMock.mock.calls[2].arguments[0].toString().endsWith("/chat/sessions/session-1/messages"), true);
+    assert.equal(fetchMock.mock.calls[3].arguments[1]?.method, "DELETE");
   } finally {
     fetchMock.mock.restore();
   }

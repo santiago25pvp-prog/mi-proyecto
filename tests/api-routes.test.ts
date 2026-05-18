@@ -14,6 +14,7 @@ const apiModule = require('../controllers/api') as typeof import('../controllers
 const { supabase } = require('../services/vector-db') as typeof import('../services/vector-db');
 const retrievalService = require('../services/retrieval') as typeof import('../services/retrieval');
 const ingestionService = require('../services/ingestion') as typeof import('../services/ingestion');
+const chatSessions = require('../services/chat-sessions') as typeof import('../services/chat-sessions');
 const scraperService = require('../services/scraper') as typeof import('../services/scraper');
 const splitterService = require('../services/splitter') as typeof import('../services/splitter');
 const embeddingService = require('../services/embedding') as typeof import('../services/embedding');
@@ -75,6 +76,21 @@ function mockExecuteRagQuery(
 
   return () => {
     (ragService as any).executeRagQuery = original;
+  };
+}
+
+function mockChatSessions(overrides: Partial<typeof chatSessions>): RestoreFn {
+  const originals = new Map<string, unknown>();
+
+  for (const [key, value] of Object.entries(overrides)) {
+    originals.set(key, (chatSessions as any)[key]);
+    (chatSessions as any)[key] = value;
+  }
+
+  return () => {
+    for (const [key, value] of originals) {
+      (chatSessions as any)[key] = value;
+    }
   };
 }
 
@@ -687,6 +703,64 @@ test('/query route responses', async (t) => {
     }
   });
 
+  await t.test('persists a successful query exchange when sessionId is provided', async () => {
+    const persisted: any[] = [];
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('query-session-user') },
+        error: null,
+      })),
+      mockExecuteRagQuery(async () => ({
+        answer: 'Respuesta persistida',
+        sources: [
+          { name: 'Manual', content: 'Contenido' },
+        ],
+      })),
+      mockChatSessions({
+        ensureChatSessionForUser: async (userId: string, sessionId: string) => {
+          assert.equal(userId, 'query-session-user');
+          assert.equal(sessionId, 'session-1');
+          return {
+            id: 'session-1',
+            title: 'Tema',
+            createdAt: '2026-05-17T00:00:00.000Z',
+            updatedAt: '2026-05-17T00:00:00.000Z',
+          };
+        },
+        appendChatExchange: async (input: any) => {
+          persisted.push(input);
+        },
+      }),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postJson(
+        baseUrl,
+        '/query',
+        { query: 'consulta', sessionId: 'session-1' },
+        'query-session-token',
+      );
+      const payload = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.answer, 'Respuesta persistida');
+      assert.deepEqual(persisted, [
+        {
+          userId: 'query-session-user',
+          sessionId: 'session-1',
+          userMessage: 'consulta',
+          assistantMessage: 'Respuesta persistida',
+          sources: [{ name: 'Manual', content: 'Contenido' }],
+        },
+      ]);
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
   await t.test('returns the fallback { answer, sources } shape without wrapper', async () => {
     const restores = [
       mockGetUser(async () => ({
@@ -889,6 +963,67 @@ test('/query/stream route responses', async (t) => {
       assert.equal((doneEvent!.payload as { answer?: unknown }).answer, 'Respuesta consolidada');
       assert.deepEqual((doneEvent!.payload as { sources?: unknown }).sources, [
         { name: 'Manual', content: 'Contenido' },
+      ]);
+    } finally {
+      restoreAll(restores);
+      await stopServer(server);
+    }
+  });
+
+  await t.test('persists a successful streaming exchange when sessionId is provided', async () => {
+    const persisted: any[] = [];
+    const restores = [
+      mockGetUser(async () => ({
+        data: { user: validUser('query-stream-session-user') },
+        error: null,
+      })),
+      mockExecuteRagQuery(async () => ({
+        answer: 'Respuesta stream',
+        sources: [
+          { name: 'Manual', content: 'Contenido' },
+        ],
+      })),
+      mockChatSessions({
+        ensureChatSessionForUser: async (userId: string, sessionId: string) => {
+          assert.equal(userId, 'query-stream-session-user');
+          assert.equal(sessionId, 'session-stream');
+          return {
+            id: 'session-stream',
+            title: 'Tema stream',
+            createdAt: '2026-05-17T00:00:00.000Z',
+            updatedAt: '2026-05-17T00:00:00.000Z',
+          };
+        },
+        appendChatExchange: async (input: any) => {
+          persisted.push(input);
+        },
+      }),
+    ];
+
+    const { server, baseUrl } = await startServer();
+
+    try {
+      const response = await postSse(
+        baseUrl,
+        '/query/stream',
+        { query: 'consulta stream', sessionId: 'session-stream' },
+        'query-stream-session-token',
+      );
+      const raw = await response.text();
+      const events = parseSsePayload(raw);
+      const doneEvent = events.find((entry) => entry.event === 'done');
+
+      assert.equal(response.status, 200);
+      assert.ok(doneEvent);
+      assert.equal((doneEvent!.payload as { answer?: unknown }).answer, 'Respuesta stream');
+      assert.deepEqual(persisted, [
+        {
+          userId: 'query-stream-session-user',
+          sessionId: 'session-stream',
+          userMessage: 'consulta stream',
+          assistantMessage: 'Respuesta stream',
+          sources: [{ name: 'Manual', content: 'Contenido' }],
+        },
       ]);
     } finally {
       restoreAll(restores);
